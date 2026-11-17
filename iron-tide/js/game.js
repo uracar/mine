@@ -81,7 +81,7 @@ if(![progSky,progTerrain,progWater,progTree,progBld,progRoad,progUnit,progDown,p
 const params=new URLSearchParams(location.hash.slice(1));
 // giant: how far the huge trees are drawn; rock: how far rocks are drawn (metres)
 const QUALITY=[
- {name:'Low',detail:0,scale:1,dpr:1,msaa:0,N:32,K:1.1,bloom:false,giant:3500,rock:500,road:1200},
+ {name:'Low',detail:0,scale:.85,dpr:1,msaa:0,N:32,K:1.1,bloom:false,giant:2800,rock:400,road:1000},   // v5.0 lighter: 85% render scale (sharpened), shorter draw distances
  {name:'Medium',detail:1,scale:1,dpr:1.25,msaa:0,N:40,K:1.2,bloom:true,giant:5500,rock:800,road:2000},
  {name:'High',detail:1,scale:1,dpr:2,msaa:4,N:40,K:1.4,bloom:true,giant:7500,rock:1200,road:2600},
  {name:'Ultra',detail:1,scale:1,dpr:2,msaa:4,N:48,K:1.8,bloom:true,giant:10000,rock:1600,road:3200}];
@@ -169,7 +169,7 @@ function resize(){
  if(!cssW||W===0)measureCanvas();
  // render resolution: the picture is drawn at the screen's real pixel density (up to 2x on Retina / high-DPI laptops), never below one
  // pixel per CSS pixel. AUTO may come down towards that floor when the frame rate is poor; SHARP never does; STANDARD (data 'full') is a fixed 1x
- const rm=typeof opts==='object'?opts.res:'auto',dev=window.devicePixelRatio||1,pr=rm==='full'?1:Math.min(dev,rm==='sharp'?2:Q.dpr),dpr=rm==='auto'?Math.max(.7,pr*dyn):pr,sc=Q.scale,w=Math.max(2,Math.floor(cssW*dpr*sc)),h=Math.max(2,Math.floor(cssH*dpr*sc));
+ const rm=typeof opts==='object'?opts.res:'auto',dev=window.devicePixelRatio||1,pr=rm==='full'?1:Math.min(dev,rm==='sharp'?2:Q.dpr),dpr=rm==='auto'?Math.max(qi===0?.6:.7,pr*dyn):pr,sc=Q.scale,w=Math.max(2,Math.floor(cssW*dpr*sc)),h=Math.max(2,Math.floor(cssH*dpr*sc));
  if(w===W&&h===H&&fbScene)return;
  W=w;H=h;canvas.width=w;canvas.height=h;freeTargets();
  texScene=makeTex(W,H,gl.LINEAR);fbResolve=fbWith(texScene);
@@ -481,10 +481,13 @@ addEventListener('keydown',e=>{
  if(e.code==='Space'||e.code.startsWith('Arrow'))e.preventDefault();
 });
 addEventListener('keyup',e=>{keys[e.code]=false;});
-function applyQuality(){
- Q=QUALITY[qi];
- if(Q.N!==gridN){for(const c of chunks.values()){if(c.tex)gl.deleteTexture(c.tex);}chunks.clear();wanted.length=0;buildGrid(Q.N);}
- W=0;resize();
+// v5.0 auto: the frame-rate governor is stepping the quality. It used to rebuild the whole terrain whenever the grid size changed
+// (Low <-> Medium) and reallocate every render target, which on a borderline machine meant a big hitch every 20 s or so as it went
+// up and down. Now the governor keeps the terrain that is loaded, and the targets are only rebuilt when the picture format changes.
+function applyQuality(auto){
+ const old=Q;Q=QUALITY[qi];
+ if(Q.N!==gridN&&!auto){for(const c of chunks.values()){if(c.tex)gl.deleteTexture(c.tex);}chunks.clear();wanted.length=0;buildGrid(Q.N);}
+ if(!auto||old.msaa!==Q.msaa||old.dpr!==Q.dpr||old.scale!==Q.scale){W=0;resize();}
 }
 buildGrid(Q.N);
 
@@ -14100,11 +14103,11 @@ function frame(now){
   // knock the quality (and the resolution) down for the whole session before the game had even started
   if(!MANUAL&&document.visibilityState==='visible'&&opts.res==='auto'&&game.state==='playing'&&stats.ready){
    adaptT+=.5;
-   if(qi<qiChosen&&fps>58&&adaptT>20&&dyn>=1){qi++;applyQuality();adaptT=-3;}      // the machine copes again: give back the quality it took
-   const floor=.7/Math.max(1,Math.min(window.devicePixelRatio||1,Q.dpr));      // v3.4: the governor may go down to 70% of one pixel per CSS pixel (the sharpening pass keeps it crisp)
+   if(qi<qiChosen&&fps>58&&adaptT>20&&dyn>=1){qi++;applyQuality(true);adaptT=-3;}      // the machine copes again: give back the quality it took
+   const floor=(qi===0?.6:.7)/Math.max(1,Math.min(window.devicePixelRatio||1,Q.dpr));   // v5.0 on Low it may go to 60%      // v3.4: the governor may go down to 70% of one pixel per CSS pixel (the sharpening pass keeps it crisp)
    // v3.1: aim for a smooth 60 - start trimming at 46 fps, not 34 (smoothness matters more than detail in a fight)
    if(fps<50&&adaptT>1&&dyn>floor+.01){dyn=Math.max(floor,dyn-.1);adaptT=0;slowN++;W=0;}
-   else if(fps<50&&adaptT>1&&qi>0&&dyn<=floor+.01){qi--;slowN=0;applyQuality();adaptT=-3;}   // at the floor: trim draw distance and effects instead of pixels
+   else if(fps<50&&adaptT>1&&qi>0&&dyn<=floor+.01){qi--;slowN=0;applyQuality(true);adaptT=-3;}   // at the floor: trim draw distance and effects instead of pixels
    else if(fps>55&&adaptT>6&&dyn<1){dyn=Math.min(1,dyn+.05);adaptT=0;W=0;}
   }else if(opts.res!=='auto'&&dyn!==1){dyn=1;W=0;}
  }
@@ -14155,7 +14158,7 @@ function frame(now){
  gpuMark('terrain');
  gl.disable(gl.CULL_FACE);gl.disable(gl.BLEND);gl.enable(gl.DEPTH_TEST);gl.depthFunc(gl.LEQUAL);
  gl.useProgram(progTerrain.p);common(progTerrain);setU(progTerrain,'uVP',vp);setU(progTerrain,'uN',gridN);setU(progTerrain,'uDetail',Q.detail?1:0);setI(progTerrain,'uHT',0);
- gl.uniform1i(progTerrain.u.uShadeN,collectShadows(A.lightDir));gl.uniform4fv(progTerrain.u.uShade,shadowData);
+ gl.uniform1i(progTerrain.u.uShadeN,Q.detail?collectShadows(A.lightDir):0);   // v5.0 Low skips the per-pixel crown-shadow loopgl.uniform4fv(progTerrain.u.uShade,shadowData);
  gl.bindVertexArray(gridVAO);gl.activeTexture(gl.TEXTURE0);
  let drawn=0;stats.tris=0;stats.trees=0;
  for(const c of shown){
