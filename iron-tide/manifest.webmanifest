@@ -1,0 +1,11 @@
+{
+ "name": "Iron Tide",
+ "short_name": "Iron Tide",
+ "description": "A naval and combined-arms war across an endless ocean world.",
+ "start_url": "./",
+ "display": "fullscreen",
+ "orientation": "landscape",
+ "background_color": "#02060c",
+ "theme_color": "#02060c",
+ "icons": [{"src": "icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any"}]
+}
