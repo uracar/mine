@@ -908,6 +908,13 @@ function makeTreeMeshes(){
  for(let i=0;i<7;i++){const a=i/7*6.2832+.4,r=.24+.08*(i%3);ellipsoid(tree,Math.cos(a)*r,.56+(i%3)*.07,Math.sin(a)*r,.21,.15,.21,6+i,.34,12,6,1);}   // lower side clumps
  for(let i=0;i<4;i++){const a=i/4*6.2832+1.1;ellipsoid(tree,Math.cos(a)*.16,.84+(i%2)*.04,Math.sin(a)*.16,.2,.14,.2,14+i,.32,12,6,1);}            // upper clumps
  ellipsoid(tree,.03,.95,-.02,.16,.07,.16,4,.3,10,5,1);                           // crown top
+ // v5.3 a real branch structure: every great limb forks into smaller boughs, each ending in its own spray of leaves
+ const bough=(B,x0,y0,z0,x1,y1,z1,r0)=>{surface(B,5,3,(u,w)=>{const t=w,x=x0+(x1-x0)*t,y=y0+(y1-y0)*t+Math.sin(t*3.1416)*.025,z=z0+(z1-z0)*t,th=u*6.2832,r=r0*(1-.6*t),
+   dx=x1-x0,dz=z1-z0,l=Math.hypot(dx,dz)||1,sx=-dz/l,sz=dx/l;return [x+sx*Math.cos(th)*r,y+Math.sin(th)*r*.25,z+sz*Math.cos(th)*r];},0);};
+ for(let i=0;i<8;i++){const a=i/8*6.2832+.3+(hsh(i,4,4)-.5)*.4,r=.27+.12*(i%3),y=.64+.06*(i%2),ex=Math.cos(a)*r*4.6,ez=Math.sin(a)*r*4.6;
+  for(let k=0;k<3;k++){const b=a+(k-1)*.55+(hsh(i,k,8)-.5)*.3,t=.45+.2*k,sx=Math.cos(a)*r*4.6*t*.22,sz=Math.sin(a)*r*4.6*t*.22,sy=.5+(y-.5)*t,
+    L=.13+.08*hsh(i,k,9),tx=sx+Math.cos(b)*L,tz=sz+Math.sin(b)*L,ty=sy+.06+.05*hsh(k,i,3);
+   bough(tree,sx,sy,sz,tx,ty,tz,.03);ellipsoid(tree,tx,ty+.02,tz,.075+.03*hsh(i,k,5),.04,.075+.03*hsh(k,i,6),30+i*3+k,.55,8,4,1);}}
  vines(tree,24,.15,.5,.68);
  trunk(low,7,[0,.1,.4,.74],.35);
  ellipsoid(low,0,.66,0,.56,.13,.56,1,.3,12,5,1);ellipsoid(low,0,.8,0,.38,.11,.38,2,.3,10,4,1);ellipsoid(low,0,.92,0,.18,.06,.18,3,.3,8,4,1);   // v5.2 layered umbrella
@@ -3312,7 +3319,7 @@ function tutMaybeStart(){
 window.__pilot={get profile(){return profile;},cloud,theatre,tut,tutStart,tutEnd,showSignup,cloudPush,TUT,get shots(){return shotsFired;}};
 
 window.__game={game,openGarage,garage,garageType,renderGarage,previewVehicle,deployFromGarage,setWater(m){waterMode=m;},tp(x,z,hd){player.x=x;player.z=z;if(hd!==undefined)player.hd=hd;player.v=0;},refreshPort,dockCandidate,startDock,callTug,newVoyage,startService,setPortTab,castOff,portName,saveGame,loadGame,hasSave,get state(){return game.state;}};
-window.__dev={setVehicle:s=>setVehicle(s),nodeSpec:n=>nodeSpec(typeof n==='string'?NODE.get(n):n),get VS(){return VS;},giants:()=>{const o=[];for(const R of giantRegions.values())for(const g of R.giants)o.push([g.x,g.y,g.z,g.height,g.crown]);return o;}};   // test hooks (screenshots, checks)
+window.__dev={setVehicle:s=>setVehicle(s),nodeSpec:n=>nodeSpec(typeof n==='string'?NODE.get(n):n),get VS(){return VS;},parts:()=>pParts.map(d=>d.kind),giants:()=>{const o=[];for(const R of giantRegions.values())for(const g of R.giants)o.push([g.x,g.y,g.z,g.height,g.crown]);return o;}};   // test hooks (screenshots, checks)
 
 // ---------- roads: a ribbon laid on the ground along every route near the camera ----------
 // The terrain also carries a faint asphalt tint along the roads, so far away (and wherever the coarse terrain
@@ -5659,6 +5666,20 @@ function shipMeshTree(spec){
   loft2(M,P(GH_BOT),P(GH_TOP),.14*R,.14*R+.62*R,top);box(M,-.7*R,.76*R,0,.2*R,.12*R,1.4*R*wz,dark);for(const sg of [-1,1])box(M,.3*R,.76*R,sg*.4*R*wz,.2*R,.1*R,.18*R,dark);
   for(let i=0;i<n;i++){const dz=(i-(n-1)/2)*.7*R;cyl(M,[.85*R,.42*R,dz],[1.15*R,.47*R,dz],.2*R,.14*R,6,[.58,.57,.5]);cyl(M,[.9*R,.43*R,dz],[3.1*R,.82*R,dz],.1*R,.08*R,6,dark);}
   place(s0,x,y,z,hd);};
+ // v5.3 heavy AA: a big armoured twin (or quad) mount whose house turns and whose guns elevate onto the aircraft the ship is engaging
+ const aaH=(x,y,z,hd,n=2,s=1)=>{aaRec(x,y+1.6*s,z,3);const a=e*s,ch=Math.cos(hd),sh=Math.sin(hd),W=(lx,ly,lz)=>[x+lx*ch+lz*sh,y+ly,z-lx*sh+lz*ch];
+  prism(M,octo(x,z,6.6*a,6.6*a,1.7*a),y,y+1.25*a,shade(top,.88));cylY(M,x,y+1.25*a,z,2.4*a,.22*a,16,dark);          // armoured tub and the race the mount turns on
+  for(let k=0;k<6;k++){const t=k/6*6.283;box(M,x+Math.cos(t)*2.75*a,y+1.25*a,z+Math.sin(t)*2.75*a,.45*a,.32*a,.7*a,[.36,.31,.18]);}   // ready-use ammunition lockers on the rim
+  const room=M.parts.length<=MAX_PARTS-2;let tid=0;
+  const house=()=>{const s0=M.P.length;box(M,-.1*a,1.47*a,0,2.7*a,1.05*a,3.1*a,top);box(M,.95*a,1.47*a,0,.16*a,2.0*a,3.4*a,shade(top,1.1));
+   for(const sg of [-1,1])box(M,-.15*a,1.47*a,sg*1.62*a,2.3*a,1.7*a,.12*a,shade(top,1.05));
+   box(M,-.95*a,2.52*a,1.05*a,.55*a,.55*a,.55*a,dark);cylX(M,-.7*a,2.8*a,1.05*a,.9*a,.16*a,6,BLK);box(M,-1.3*a,1.55*a,0,.5*a,.65*a,1.5*a,[.36,.31,.18]);
+   for(const sg of [-1,1])box(M,-.4*a,2.15*a,sg*.9*a,.6*a,.4*a,.12*a,[.85,.85,.8]);msPlace(M,s0,x,0,z,hd,0);for(let i=s0;i<M.P.length;i+=3)M.P[i+1]+=y;};
+  const guns=()=>{const s0=M.P.length;for(let b=0;b<n;b++){const zz=(b-(n-1)/2)*.95*a;
+    box(M,-.25*a,2.05*a,zz,1.3*a,.5*a,.5*a,dark);cylX(M,.3*a,2.3*a,zz,2.5*a,.24*a,8,shade(top,.7));cylX(M,.3*a,2.3*a,zz,6.3*a,.13*a,8,BLK);cylX(M,6.4*a,2.3*a,zz,.7*a,.2*a,8,BLK);}
+   box(M,.6*a,2.3*a,0,.4*a,.35*a,(n-1)*.95*a+.3*a,dark);msPlace(M,s0,x,0,z,hd,0);for(let i=s0;i<M.P.length;i+=3)M.P[i+1]+=y;};
+  if(room){part(M,{kind:'aa',pivot:[x,y,z],axis:[0,1,0],rest:hd},id=>{tid=id;house();});part(M,{kind:'aael',parent:tid,pivot:W(.3*a,2.3*a,0),axis:[sh,0,ch]},guns);}
+  else{house();guns();}};
  const ciws=(x,y,z,hd)=>{aaRec(x,y+2,z,1);const s0=M.P.length;box(M,0,0,0,1.9*e,1.2*e,1.9*e,top);cylY(M,0,1.2*e,0,.78*e,2.3*e,6,WHITE);cylY(M,0,3.5*e,0,.78*e,.7*e,6,WHITE,0,.3*e);cylX(M,.5*e,2.1*e,0,1.7*e,.14*e,4,BLK);place(s0,x,y,z,hd);};
  const canis=(x,y,z,hd)=>{const s0=M.P.length;box(M,0,0,0,2.2*e,.8*e,2.8*e,dark);for(const dz of [-.7,.7])for(const dy of [0,1])cyl(M,[-1.7*e,(1+dy*.95)*e,dz*e],[2.3*e,(2.3+dy*.95)*e,dz*e],.44*e,.44*e,5,top);place(s0,x,y,z,hd);};
  const abl=(x,y,z,hd)=>{const s0=M.P.length;box(M,0,0,0,6.5*e,1.7*e,3.2*e,top);box(M,0,1.7*e,0,6.1*e,.16*e,2.8*e,dark);place(s0,x,y,z,hd);};
@@ -5714,7 +5735,7 @@ function shipMeshTree(spec){
      const mx=sg>0?m[0]:-m[0];quad(M,[cx+mx-m[2]/2,y0+m[1]-m[3]/2,zz],[cx+mx+m[2]/2,y0+m[1]-m[3]/2,zz],[cx+mx+m[2]/2,y0+m[1]+m[3]/2,zz],[cx+mx-m[2]/2,y0+m[1]+m[3]/2,zz],WHITE,0);}}}
  };
  const K={D,h,M,L,B,hb,p,q,lv,e,id,top,under,deckC,dark,light,acc,BLK,STEEL,RAIL,ORG,sec,N,X,Y,bAt,sideZ,FY,flat,EX,place,bx,flatq,mark,ring,ribbon,railLine,rails,hs,ports,fun,pole,tripod,latt,plat,dirc,dome,radar,dish,
-  tub,aa1,aa4,dp,ciws,canis,abl,tubesC,boat,davBoat,crane,catap,slight,vent,vlsF,helipad,jet,heli,prop,wac,mods,clear,GR,fit,R,sd,svc};
+  tub,aa1,aa4,aaH,dp,ciws,canis,abl,tubesC,boat,davBoat,crane,catap,slight,vent,vlsF,helipad,jet,heli,prop,wac,mods,clear,GR,fit,R,sd,svc};
  ({dd:shipDD,pt:shipPT,ca:shipCA,ff:shipCA,ars:shipCA,bb:shipBB,mon:shipBB,cv:shipCV})[D.cls](K);
  return M;
 }
@@ -5922,8 +5943,8 @@ function shipBB(K){
   S7:{h0:-14,h1:14,ct:13,tw:[2.5,10],f:[-1.5],mm:-5.5,ad:null,dpX:[]}}[id];
  const w=bAt(X(0))*1.32,y0=Y(X(0)),modern=id==='S5d',fl=id==='S7',GOLD=[1,.78,.32];
  const w1=fl?w*1.05:w,w2=w*.62;                                                  // v4.9 the Flagship's decks spread across its beam
- const y1=fl?hs(cfg.h0,cfg.h1,y0,lv*1.4,w1,{cf:.55,ca:.45,k:.92,col:[.15,.15,.17]}):hs(cfg.h0,cfg.h1,y0,lv*1.15,w1,{cf:.28});   // the 01 level, full width amidships
- const y2=fl?hs(cfg.h0+2,cfg.h1-2,y1,lv*1.3,w*.7,{cf:.55,ca:.45,k:.9,col:[.12,.12,.14]}):hs(cfg.h0+3,cfg.h1-2.5,y1,lv*1.05,w2,{cf:.3});   // 02 level
+ const y1=fl?hs(cfg.h0,cfg.h1,y0,lv*1.4,w1,{cf:.55,ca:.45,k:.92,col:shade(top,.78)}):hs(cfg.h0,cfg.h1,y0,lv*1.15,w1,{cf:.28});   // the 01 level, full width amidships
+ const y2=fl?hs(cfg.h0+2,cfg.h1-2,y1,lv*1.3,w*.7,{cf:.55,ca:.45,k:.9,col:shade(top,.68)}):hs(cfg.h0+3,cfg.h1-2.5,y1,lv*1.05,w2,{cf:.3});   // 02 level
  const y3=(!fl&&id!=='S4d')?hs(cfg.f[cfg.f.length-1]-4.5,cfg.tw[0]+.5,y2,lv*1.05,w*.48,{cf:.35,ca:.3}):y2;   // the 03 deck the funnels stand on
  // conning tower: a thick armoured octagon at the front of the superstructure
  const ctx=X(cfg.ct);prism(M,octo(ctx,0,5*e,6*e,1.6*e),y1,y2+lv*1.2,[.3,.32,.34].map((v,i)=>top[i]*.85));for(const sg of [-1,1])box(M,ctx+.2*e,y2+lv*.75,0,5.1*e,.35*e,5.4*e,BLK);
@@ -5935,7 +5956,7 @@ function shipBB(K){
   radar((a+b)/2,yt+1.8*e,0,5*e,2*e,1.1,1);pole((a+b)/2-1,yt+1.8*e,8*e,{yards:[[.5,6*e]]});}
  else if(fl){                                                                            // v4.9 the Flagship: one great tower
   // Bismarck-style: a deckhouse, a tall foretop tower with lit bands, a rangefinder cupola and arms on top, then the arrays, mast and radar
-  const [a,b]=cfg.tw,DK=[.11,.11,.13],MD=[.15,.15,.17];
+  const [a,b]=cfg.tw,DK=shade(top,.6),MD=shade(top,.82);
   for(let k=0;k<3;k++){const ww=w*.5*(1-k*.08),aa=a+k*.5,bb=b-k*.6;const yb=yt;yt=hs(aa,bb,yt,lv*1.25,ww,{col:k%2?MD:DK,win:k===2?.5:0,k:.94,cf:.5,ca:.35});
    box(M,X((aa+bb)/2),yt-.05*e,0,(X(bb)-X(aa))*.92,.16*e,ww*.92,GOLD,7);if(k===1)_spyBlock(K,aa,bb,yb,lv*1.25,ww*.95,[1,-1]);}
   for(const sg of [-1,1])box(M,X(b-1),yt-lv*.5,sg*w*.24,X(1.8)-X(0),.22*e,w*.12,DK);                                          // bridge wings
@@ -5945,7 +5966,7 @@ function shipBB(K){
    if(k===6)_spyBlock(K,aa,bb,yb,lv*1.15,ww,[1,-1]);}
   const tc=(c0+c1)/2,tx=X(tc);
   yt=dome(tc,yt,0,3.4*e,MD);box(M,tx,yt-1.6*e,0,1.8*e,1.4*e,w*.36,DK);for(const sg of [-1,1])cylZ(M,tx,yt-.9*e,sg*w*.18-(sg<0?1*e:0),1*e,1*e,8,DK);   // rangefinder cupola and its arms
-  latt(tc-.4,yt,14*e,2*e,.55*e,{col:[.12,.12,.14]});radar(tc-.4,yt+14*e,0,6*e,2*e,1.2,0);
+  latt(tc-.4,yt,14*e,2*e,.55*e,{col:shade(top,.55)});radar(tc-.4,yt+14*e,0,6*e,2*e,1.2,0);
   cylY(M,tx,yt+16*e,0,.18*e,7*e,4,GOLD,7);for(const sg of [-1,1])part(M,{kind:'flag',pivot:[tx,yt+21*e,sg*.1],axis:[0,1,0],lvl:0,phase:sg},()=>box(M,tx-1.8*e,yt+20.3*e,0,3.6*e,1.2*e,.06,GOLD,7));
   for(const sg of [-1,1])part(M,{kind:'blink',pivot:[tx,yt+.3*e,sg*w*.1],freq:.6,phase:sg,duty:.5},()=>box(M,tx,yt,sg*w*.1,.8*e,.8*e,.8*e,GOLD,7));
   // glowing lines down both deck edges
@@ -5957,17 +5978,20 @@ function shipBB(K){
   const ym=modern?latt((a+b)/2-1.5,yt,17*e,2.4*e,.6*e):pole((a+b)/2-1.5,yt,19*e,{yards:[[.6,8*e]]});radar((a+b)/2-1.5,yt+(modern?17:11)*e,0,modern?7*e:5.5*e,modern?2.4*e:3.2*e,1.1,modern?0:1);
   if(modern){dome((a+b)/2+3,yd,0,1.4*e);dish(X(a+1),yt,w*.12,1.2*e);}}
  // v4.7 the Flagship's missile blocks: armoured vertical-launch blocks before and behind the citadel, a grid of cell hatches on each
- if(fl){const vls=(xa,xb,y,ww,hh)=>{const x0=X(xa),x1=X(xb),nx=Math.max(2,Math.floor((x1-x0)/(2.4*e))),nz=Math.max(2,Math.floor(ww/(2.4*e)));box(M,(x0+x1)/2,y,0,x1-x0,hh,ww,[.15,.15,.17]);
+ if(fl){const vls=(xa,xb,y,ww,hh)=>{const x0=X(xa),x1=X(xb),nx=Math.max(2,Math.floor((x1-x0)/(2.4*e))),nz=Math.max(2,Math.floor(ww/(2.4*e)));box(M,(x0+x1)/2,y,0,x1-x0,hh,ww,shade(top,.6));
    for(let i=0;i<nx;i++)for(let j=0;j<nz;j++)box(M,x0+(i+.5)*(x1-x0)/nx,y+hh,-ww/2+(j+.5)*ww/nz,1.7*e,.14*e,1.7*e,[.06,.06,.07]);box(M,(x0+x1)/2,y+hh-.08*e,0,x1-x0+.25*e,.22*e,ww+.25*e,GOLD,7);};
-  const vlsZ=(xa,xb,y,zc,ww,hh)=>{const x0=X(xa),x1=X(xb),nx=Math.max(2,Math.floor((x1-x0)/(2.4*e))),nz=Math.max(2,Math.floor(ww/(2.4*e)));box(M,(x0+x1)/2,y,zc,x1-x0,hh,ww,[.15,.15,.17]);
+  const vlsZ=(xa,xb,y,zc,ww,hh)=>{const x0=X(xa),x1=X(xb),nx=Math.max(2,Math.floor((x1-x0)/(2.4*e))),nz=Math.max(2,Math.floor(ww/(2.4*e)));box(M,(x0+x1)/2,y,zc,x1-x0,hh,ww,shade(top,.6));
    for(let i=0;i<nx;i++)for(let j=0;j<nz;j++)box(M,x0+(i+.5)*(x1-x0)/nx,y+hh,zc-ww/2+(j+.5)*ww/nz,1.7*e,.14*e,1.7*e,[.06,.06,.07]);box(M,(x0+x1)/2,y+hh-.08*e,zc,x1-x0+.25*e,.22*e,ww+.25*e,GOLD,7);};
   for(const sg of [-1,1])vlsZ(-5,cfg.h1-1.5,y1,sg*w*.385,w*.06,lv*.9);
   for(const sg of [-1,1])K.wac('j',X(-10.5),y1,sg*w*.42,sg>0?2.6:-2.6,17*e,[.16,.16,.18]);
   {const x=X(-9.5);for(const sg of [-1,1]){K.helipad(x,sg*w*.17,w*.15,y2);K.wac('h',x,y2,sg*w*.17,0,15*e,[.16,.16,.18]);}}   // v4.9 two helicopters on the after deck house                    // v4.9 two long missile fields beside the tower
-  for(const xs of [1,-1]){const x=X(41.5*xs);vlsZ(xs>0?39.3:-43.8,xs>0?43.8:-39.3,Y(x),0,bAt(x)*.95,lv*1.1);}}
+  for(const xs of [1,-1]){const x=X(41.5*xs);vlsZ(xs>0?39.3:-43.8,xs>0?43.8:-39.3,Y(x),0,bAt(x)*.95,lv*1.1);}
+  // v5.3 heavy AA: big twin mounts in a ring round the citadel on the 01 level, quads on the open deck fore and aft
+  {const zE=w1/2-4*e;for(const xp of [cfg.h1-2.5,cfg.h1-7.5,1.5,-4,cfg.h0+3])for(const sg of [-1,1]){const x=X(xp);K.aaH(x,y1,sg*zE,sg*(xp>0?-.6:-2.5),2,1.15);}
+   for(const xp of [24,-24,22.5,-22.5])for(const sg of [-1,1]){const x=X(xp),z=sg*bAt(x)*.72;if(clear(x,z,4.2*e))K.aaH(x,Y(x),z,(xp>0?0:Math.PI)+sg*(xp>0?-.7:.7),4,1.25);}}}
  // funnels: tall, capped, raked on the Yamato, twin and abreast on the Flagship
  for(const fx of cfg.f){
-  if(fl)fun(fx,y2,7*e,4.8*e,17*e,{rake:2*e,col:[.11,.11,.13],band:GOLD,cap:.12,tp:.94,plat:1});                 // one great funnel, as on the Bismarck
+  if(fl)fun(fx,y2,7*e,4.8*e,17*e,{rake:2*e,col:shade(top,.62),band:GOLD,cap:.12,tp:.94,plat:1});                 // one great funnel, as on the Bismarck
   else if(id==='S4d')fun(fx,y2,5*e,4*e,21*e,{rake:8*e,cap:.1,tp:.92,plat:1});
   else fun(fx,y3,4.4*e,3.5*e,17*e,{cap:.14,tp:.95,plat:1});}
  // mainmast and after fire control
@@ -6212,18 +6236,19 @@ function wingFly(m,a,dt,threat){
 // AA: every AA mount drawn on your ship (quad tubs, single guns, CIWS, dual-purpose mounts) is a gun position. Enemy aircraft inside
 // 2.4 km are engaged automatically: each burst leaves a real mount on the deck and is led onto the target.
 let shipAA=null;
-function shipAAInit(VM){shipAA=VS&&VS.type==='ship'&&VM&&VM.aa&&VM.aa.length?{m:VM.aa,t:0,tg:null,scan:0}:null;}
+function shipAAInit(VM){shipAA=VS&&VS.type==='ship'&&VM&&VM.aa&&VM.aa.length?{m:VM.aa,t:0,tg:null,scan:0,heavy:VM.aa.some(m=>m[3]===3)}:null;}
 function shipAATick(dt){
  if(!shipAA||game.state!=='playing'||!player||game.hull<=0)return;
  const A=shipAA;A.scan-=dt;
- if(A.scan<=0){A.scan=.5;A.tg=null;let bd=2400;for(const a of air)if(!a.dead&&!a.wing&&playerIsFoeOf(a.fid)){const d=Math.hypot(a.x-player.x,a.y-player.y,a.z-player.z);if(d<bd){bd=d;A.tg=a;}}}
+ if(A.scan<=0){A.scan=.5;A.tg=null;let bd=A.heavy?3400:2400;for(const a of air)if(!a.dead&&!a.wing&&playerIsFoeOf(a.fid)){const d=Math.hypot(a.x-player.x,a.y-player.y,a.z-player.z);if(d<bd){bd=d;A.tg=a;}}}
  const T0=A.tg;if(!T0||T0.dead)return;
  A.t-=dt;if(A.t>0)return;A.t=Math.max(.04,.5/A.m.length);                // more mounts, more fire
  const m=A.m[Math.floor(Math.random()*A.m.length)],[x,y,z]=wingWorld(m[0],m[1],m[2]);
  const dx=T0.x-x,dy=T0.y-y,dz=T0.z-z,D=Math.hypot(dx,dy,dz);if(D<30)return;
- const v=m[3]===2?700:880,P=leadSolve(x,y+1,z,T0,v,0),tf=P.tf,lx=P.x,lz=P.z,ly=P.y,L=Math.hypot(lx-x,ly-y,lz-z)||1,sp=m[3]===2?.02:.03;
- spawnShell(x,y+1,z,((lx-x)/L+(Math.random()-.5)*sp)*v,((ly-y)/L+(Math.random()-.5)*sp)*v,((lz-z)/L+(Math.random()-.5)*sp)*v,m[3]===2?40:m[3]===1?14:8,m[3]===2?.7:.45,0,tf+.15);
- if(m[3]===2)shellFx.push({kind:'puff',x,y:y+1,z,age:0,life:.3,size:3});
+ const hv=m[3]===3,v=hv?960:m[3]===2?700:880,P=leadSolve(x,y+1,z,T0,v,0),tf=P.tf,lx=P.x,lz=P.z,ly=P.y,L=Math.hypot(lx-x,ly-y,lz-z)||1,sp=hv?.014:m[3]===2?.02:.03;
+ if(!hv&&D>2400)return;                                                                       // the light guns can't reach as far as the heavy mounts
+ spawnShell(x,y+1,z,((lx-x)/L+(Math.random()-.5)*sp)*v,((ly-y)/L+(Math.random()-.5)*sp)*v,((lz-z)/L+(Math.random()-.5)*sp)*v,hv?34:m[3]===2?40:m[3]===1?14:8,hv?.6:m[3]===2?.7:.45,0,tf+.15);
+ if(m[3]>=2)shellFx.push({kind:'puff',x,y:y+1,z,age:0,life:.3,size:hv?4:3});
 }
 // enemy warships of 100 m and more fire AA at you when you fly near them; the rounds come from the ship's own length
 function foeAATick(dt){
@@ -8434,6 +8459,12 @@ function animateParts(t,dt){
    case 'flap':partA[o+3]=pa.flap*.65;break;
    case 'flag':{const w=.18+.3*Math.min(1,Math.abs(v)/Math.max(1,VS.cruise));partA[o+3]=Math.sin(t*(4.5+3*Math.min(1,Math.abs(v)/Math.max(1,VS.cruise)))-d.phase)*w*(d.lvl?1.5:.7);break;}   // ensign ripple: livelier at speed
    case 'radar':partA[o+3]=(t*d.rate)%6.2832;break;
+   case 'aa':{                                                    // v5.3 heavy AA: train onto the aircraft the ship's AA is engaging
+    const T=!garage&&shipAA&&shipAA.tg&&!shipAA.tg.dead?shipAA.tg:null;let want=0,el=.32;
+    if(garage){want=Math.sin(t*.35+i)*1.1;el=.45+.35*Math.sin(t*.5+i);}
+    else if(T){const w=partWorld(d.pivot);want=wrapPi(headingOf(T.x-w[0],T.z-w[2])-e.hd-d.rest);el=clamp(Math.atan2((T.y||0)-w[1],Math.hypot(T.x-w[0],T.z-w[2])),.05,1.4);}
+    d.ang=(d.ang||0)+clamp(wrapPi(want-(d.ang||0)),-1.4*dt,1.4*dt);d.el=el;partA[o+3]=d.ang;break;}
+   case 'aael':{const P=pParts[(d.parent||1)-1],tg=P&&P.el!==undefined?P.el:.32;d.el=(d.el??.32)+clamp(tg-(d.el??.32),-.9*dt,.9*dt);partA[o+3]=d.el;break;}
    case 'lift':{const u=i3Cycle()-d.ph;partC[o+1]=u>.22&&u<.72?d.amp*Math.sin(Math.PI*(u-.22)/.5):0;break;}            // I3 shell hoists
    case 'swing':{const u=i3Cycle();partA[o+3]=u>.3&&u<.74?-1.35*Math.sin(Math.PI*(u-.3)/.44):0;break;}             // I3 crane
    case 'ram':{const u=i3Cycle();partC[o]=u>.58&&u<.8?2.6*Math.sin(Math.PI*(u-.58)/.22):0;break;}                   // I3 rammer

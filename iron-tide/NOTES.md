@@ -23,7 +23,7 @@ remembers why it started. They just keep fighting.
 ## World and maps
 | | Item | Status |
 |---|---|---|
-| | Trees need better models; the world should feel like Pandora (Avatar) | 🔨 v5.2: brighter canopies, bioluminescent glow (night), layered umbrella LOD |
+| | Trees need better models; the world should feel like Pandora (Avatar) | 🔨 v5.2 glow at night, umbrella LOD · v5.3 realistic: natural greens, ragged leafy outlines with gaps, sun/shade leaf masses, forked boughs; ordinary trees get ragged leaf edges too |
 | | Battles are hard to find / not fun — there should be cities and military outposts to fight over | ❓ |
 | | Front lines are real fronts: 50–100 km wide with a no-man's-land, "not some small little trench" | ⬜ |
 | | Bigger maps with more cities | ⬜ |
@@ -78,7 +78,7 @@ remembers why it started. They just keep fighting.
 - Tree: Small destroyer / Light cruiser / Light battleship ("tanks on water") →
   torpedo boat, AA destroyer, frigate, monitor / ironclad → WW2 destroyer, missile destroyer, AA cruiser, Iowa-like →
   Arleigh Burke-like (less tech), "mix all three", aircraft carrier (with planes), … → **flagship: a mix of everything**.
-- T7 flagship (FLAGSHIP COMMAND, 400 m): keep layout and size, make the model better. 🔨 v5.2: gunmetal paint instead of near-black, painted barbettes with armour rings.
+- T7 flagship (FLAGSHIP COMMAND, 400 m): keep layout and size, make the model better. 🔨 v5.2 gunmetal paint, painted barbettes · v5.3 citadel/tower/funnel no longer near-black; **18 heavy AA mounts** (10 big twins round the citadel, 8 quads fore and aft) that turn and elevate onto the aircraft being engaged, fire faster, harder-hitting rounds and reach 3.4 km (light AA 2.4 km).
 - (A sideways ship sketch with missiles ×4 / ×4 and an AA tower — not for T7, per the owner.)
 
 ## Planes

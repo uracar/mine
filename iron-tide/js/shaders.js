@@ -396,13 +396,17 @@ void main(){
   occl=.6;back=.5;
   emis+=mix(lin(vec3(.2,.9,1.)),lin(vec3(.85,.35,1.)),step(.6,vTint))*smoothstep(.55,.9,strand)*glowK*1.3;   // glowing strands
  }else{                                                        // leaves: three scales of colour variation
-  vec3 la=lin(vec3(.03,.14,.10)),lb=lin(vec3(.09,.36,.23));   // v5.2 brighter, more saturated Pandora canopies
+  vec3 la=lin(vec3(.035,.11,.07)),lb=lin(vec3(.11,.31,.17));   // natural greens with a Pandora teal cast   // v5.2 brighter, more saturated Pandora canopies
   float nd=1.-smoothstep(150.,900.,dist);
+  float rn=vnoise3(wp*.06)*.5+vnoise3(wp*.2)*.3+vnoise3(wp*.65)*.2;               // v5.3 leaf masses at the scale of the tree
+  {float edge=1.-abs(dot(N,V)),fk=1.-smoothstep(900.,1800.,dist);              // the outline of a crown breaks into sprays, with gaps through it
+   if(rn<((edge-.3)*1.5+.06)*fk)discard;}
+  occl*=.5+.5*smoothstep(.25,.7,rn);                                          // the gaps between leaf masses sit in shade
   float big=vnoise(wp.xz*.011+wp.y*.009),mid=vnoise(wp.xz*.06+wp.y*.07),fine=vnoise(wp.xz*.45+wp.y*.5);
   N=normalize(N+(vec3(vnoise(wp.xz*.05+wp.y*.07),vnoise(wp.zx*.06-wp.y*.05),vnoise(wp.yx*.05))-.5)*1.4*nd);
   vec3 leaf=mix(la,lb,clamp(vTint*.5+vInfo.y*.35+big*.45,0.,1.));
   if(vTint>.72)leaf=mix(leaf,lin(vec3(.46,.14,.50)),.8*(vTint-.72)*3.6);       // purple and magenta crowns
-  if(vTint<.16)leaf=mix(leaf,lin(vec3(.06,.26,.44)),(.16-vTint)*5.);            // and a few deep blue ones
+  if(vTint<.08)leaf=mix(leaf,lin(vec3(.06,.22,.30)),(.08-vTint)*8.);            // and a rare blue-teal one
   {float sp=smoothstep(.72,.9,vnoise3(wp*.45));                        // bioluminescent spots in the leaves
    emis+=mix(lin(vec3(.25,.95,.85)),lin(vec3(.95,.35,.9)),step(.55,vTint))*sp*glowK*.8*(1.-smoothstep(600.,2500.,dist));}
   float clump=smoothstep(.3,.7,vnoise(wp.xz*.085+wp.y*.12));           // leaf clusters
@@ -410,7 +414,7 @@ void main(){
   occl*=mix(.72,1.,smoothstep(-.8,.4,N.y));                       // the underside of a canopy sits in its own shade
   back=1.;
  }
- float diff=max(dot(N,uLightDir)*.7+.3,0.);
+ float diff=max(dot(N,uLightDir)*.85+.15,0.);                    // v5.3 harder light: the crown reads as masses in sun and shade
  vec3 amb=mix(uAmbDown,uAmbUp,N.y*.5+.5)*occl;
  float sunSh=sunShadow(vRel,N);
  vec3 light=uLightCol*diff*sunUp*mix(.55,1.,occl)*sunSh+amb*1.9+uLightCol*.06*sunUp;
@@ -597,7 +601,8 @@ void main(){
 }`;
 
 // ---------------- units: ship, vehicles and soldiers (instanced, vertex colours) ----------------
-const PART_SLOTS=57;                                                   // moving-part groups a vehicle may have (slot 0 is the rigid hull)
+// moving-part groups a vehicle may have. v5.3: 97 where the graphics chip has room for the bigger uniform arrays (almost all), else 57
+const PART_SLOTS=(()=>{try{const g=document.createElement('canvas').getContext('webgl2'),m=g?g.getParameter(g.MAX_VERTEX_UNIFORM_VECTORS):0,x=g&&g.getExtension('WEBGL_lose_context');if(x)x.loseContext();return m>=512?97:57;}catch(e){return 57;}})();
 const UNIT_VS=GLSL_HEAD+GLSL_COMMON+`
 layout(location=0) in vec3 aPos;
 layout(location=1) in vec3 aNrm;
@@ -725,6 +730,8 @@ void main(){
    if(nd>0.){float g=vnoise3(P*vec3(2.6,.3,2.6));N=normalize(N+vec3(g-.5,0.,.5-g)*1.1*nd);}
    occ=.45+.55*smoothstep(-2.,10.,P.y);
   }else{
+   {float eg=1.-abs(dot(N,V)),rn=vnoise3(wp*.9)*.6+vnoise3(wp*2.6)*.4;                // v5.3 ragged leaf edges
+    if(dist<500.&&rn<(eg-.45)*1.8*(1.-smoothstep(250.,500.,dist)))discard;}
    float ac=fract(pc),mid=1.-smoothstep(.0,.05,abs(ac-.5)),edge=smoothstep(.36,.49,abs(ac-.5));
    float var=vnoise3(P*.6+col*17.);
    col*=.7+.6*var;
