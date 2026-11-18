@@ -1,6 +1,7 @@
 # Iron Tide
 
-The standalone version of the Iron Tide artifact: a static site, no build step.
+The main version of Iron Tide: a static site, no build step, live at https://iron-tide-play.netlify.app.
+The original claude.ai artifact is no longer updated; all changes happen here.
 
 ```
 index.html            page shell
