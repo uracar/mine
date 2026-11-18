@@ -3108,9 +3108,24 @@ function acctSignedIn(name){
  netStart();
 }
 async function acctRoster(){try{const d=await api('/pilots');cloud.roster=(d.pilots||[]).map(p=>({callsign:p.callsign,xp:p.xp,rank:p.rank,kills:p.kills,fid:p.fid}));renderPilot();}catch(e){}}
+// a guest account made and kept in this browser, so the HTML joins the server without a log-in; logging in from ACCOUNT replaces it
+async function acctGuest(){
+ let g=null;try{g=JSON.parse(store.get('irontide.guest')||'null');}catch(e){}
+ for(let i=0;i<4;i++){
+  try{
+   if(!g){g={u:'guest'+Math.floor(1e6+Math.random()*9e6),p:Array.from(crypto.getRandomValues(new Uint8Array(18)),b=>b.toString(36).padStart(2,'0')).join('')};
+    const d=await api('/register',{method:'POST',body:{username:g.u,password:g.p}});store.set('irontide.guest',JSON.stringify(g));return d;}
+   return await api('/login',{method:'POST',body:{username:g.u,password:g.p}});
+  }catch(e){if(e.status===409||e.status===401){g=null;continue;}throw e;}
+ }
+ throw new Error('guest');
+}
 async function serverInit(){
  acctChip();
- if(!ACCT.token){acctRoster();return;}
+ if(!ACCT.token){                                              // v4.9 nobody logged in: join the shared war at once as a guest
+  try{const d=await acctGuest();ACCT.token=d.token;ACCT.user=d.username;store.set('irontide.token',d.token);store.set('irontide.user',d.username);}
+  catch(e){acctRoster();cloud.status='Could not reach the game server - playing offline. Your pilot is saved in this browser.';renderPilot();return;}
+ }
  try{
   const d=await api('/me');
   if(d.save&&!profile){cloudRestore(d.save);if(profile)toast('Welcome back, '+profile.callsign+'. Your pilot was loaded from your account.',6000);if(profile&&$('signup').classList.contains('on'))showScreen('menu');}
@@ -6898,8 +6913,11 @@ function cwAddLocal(g){g.mat=new Map();g.dc={s:new Set(),v:new Set()};g.dl={s:ne
 function cwSim(t,dt){
  const G=CW.G,near=(a,b,r)=>Math.abs(a.p[0]-b.p[0])<r&&Math.abs(a.p[1]-b.p[1])<r&&Math.hypot(a.p[0]-b.p[0],a.p[1]-b.p[1])<r;
  for(const g of G){g.p=cwPos(g,t);g.at=g.p[2]>=1;g.hot=false;g.dm=0;g.dv=0;}
- for(let i=0;i<G.length;i++){const a=G[i];
-  for(let j=i+1;j<G.length;j++){const b=G[j];if(!atWar(a.f,b.f))continue;
+ const CS=12000,grid=new Map(),ck=(x,z)=>Math.floor(x/CS)*4096+Math.floor(z/CS);   // v4.9 only groups in neighbouring 12 km cells can meet
+ G.forEach((g,i)=>{g._i=i;const k=ck(g.p[0],g.p[1]);let c=grid.get(k);if(!c)grid.set(k,c=[]);c.push(g);});
+ for(let i=0;i<G.length;i++){const a=G[i],cx=Math.floor(a.p[0]/CS),cz=Math.floor(a.p[1]/CS);
+  for(let ox=-1;ox<=1;ox++)for(let oz=-1;oz<=1;oz++){const cell=grid.get((cx+ox)*4096+cz+oz);if(!cell)continue;
+  for(const b of cell){if(b._i<=i||!atWar(a.f,b.f))continue;
    const real=(a.mat&&a.mat.size)||(b.mat&&b.mat.size);                // fought for real right here: the dice stay out of it
    if(a.ty==='L'&&b.ty==='L'&&near(a,b,4000)){a.hot=b.hot=true;if(real)continue;
     const pa=a.m+25*a.v,pb=b.m+25*b.v;a.dm+=.00025*pb*dt*(.5+Math.random());b.dm+=.00025*pa*dt*(.5+Math.random());
@@ -6908,14 +6926,15 @@ function cwSim(t,dt){
    else if(a.ty==='A'&&b.ty==='A'&&near(a,b,8000)){a.hot=b.hot=true;if(real)continue;if(Math.random()<.002*b.v*dt)a.dv++;if(Math.random()<.002*a.v*dt)b.dv++;}
    else if((a.ty==='A'&&b.ty==='L'||a.ty==='L'&&b.ty==='A')){const A=a.ty==='A'?a:b,L=A===a?b:a;if(!A.at||!near(A,L,3000))continue;L.hot=true;if(real)continue;
     L.dm+=.007*A.v*dt*Math.random();if(Math.random()<.0004*L.m/100*dt)A.dv++;}
-  }}
+  }}}
  if(RM.ready&&!CW.staged){CW.staged=true;for(const g of G)if(g.ty==='L'){g.home=cwPickHome(g);if(!g.key||Math.random()<.5)g.until=t;}}   // v4.9 onto the main road
+ let orders=0;                                                       // v4.9 new orders (road route planning) are spread over ticks so the sim never hitches
  for(const g of G){
   if(g.ty==='L')g.m=Math.max(0,Math.round((g.m-g.dm)*10)/10);g.v=Math.max(0,g.v-g.dv);
   // replacements come slowly, and slower still while the group is in contact
   const k=g.hot?.3:1;if(g.ty==='L')g.m=Math.min(CW_MEN,g.m+.05*dt*k);
   g.vr+=dt*k/(g.ty==='L'?900:g.ty==='S'?1200:600);if(g.vr>=1){g.vr=0;if(g.v<CW_VEH[g.ty])g.v++;}
-  if(t>=g.until||(g.ty!=='S'&&g.key&&!CW.frontBy.has(g.key)))cwOrder(g,t);
+  if((t>=g.until||(g.ty!=='S'&&g.key&&!CW.frontBy.has(g.key)))&&orders<6){orders++;cwOrder(g,t);}
   if(facOfSeed(facNearest(g.home[0],g.home[1]))!==g.f&&g.ty!=='S')g.home=cwPickHome(g);   // its home fell: it moves to another
  }
  // armies on a line push it: the stronger side wins ground, and at 100 the territory falls
