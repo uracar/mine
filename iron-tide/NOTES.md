@@ -23,7 +23,7 @@ remembers why it started. They just keep fighting.
 ## World and maps
 | | Item | Status |
 |---|---|---|
-| | Trees need better models; the world should feel like Pandora (Avatar) | 🔨 |
+| | Trees need better models; the world should feel like Pandora (Avatar) | 🔨 v5.2: brighter canopies, bioluminescent glow (night), layered umbrella LOD |
 | | Battles are hard to find / not fun — there should be cities and military outposts to fight over | ❓ |
 | | Front lines are real fronts: 50–100 km wide with a no-man's-land, "not some small little trench" | ⬜ |
 | | Bigger maps with more cities | ⬜ |
@@ -78,7 +78,8 @@ remembers why it started. They just keep fighting.
 - Tree: Small destroyer / Light cruiser / Light battleship ("tanks on water") →
   torpedo boat, AA destroyer, frigate, monitor / ironclad → WW2 destroyer, missile destroyer, AA cruiser, Iowa-like →
   Arleigh Burke-like (less tech), "mix all three", aircraft carrier (with planes), … → **flagship: a mix of everything**.
-- **T7 ship sketch** (page with 90 m / 140 m / 20 m): long-range missiles ×4, short-range missiles ×4, AA tower(s), **(?) cannon** at the bow. 🔨
+- T7 flagship (FLAGSHIP COMMAND, 400 m): keep layout and size, make the model better. 🔨 v5.2: gunmetal paint instead of near-black, painted barbettes with armour rings.
+- (A sideways ship sketch with missiles ×4 / ×4 and an AA tower — not for T7, per the owner.)
 
 ## Planes
 - Ammo types: bombs, rockets, machine guns. Fighter upgrades (guns, speed). Bombers for large strikes.

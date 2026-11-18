@@ -910,7 +910,7 @@ function makeTreeMeshes(){
  ellipsoid(tree,.03,.95,-.02,.16,.07,.16,4,.3,10,5,1);                           // crown top
  vines(tree,24,.15,.5,.68);
  trunk(low,7,[0,.1,.4,.74],.35);
- ellipsoid(low,0,.72,0,.42,.24,.42,1,.28,10,6,1);ellipsoid(low,0,.56,0,.36,.12,.36,2,.25,10,4,1);
+ ellipsoid(low,0,.66,0,.56,.13,.56,1,.3,12,5,1);ellipsoid(low,0,.8,0,.38,.11,.38,2,.3,10,4,1);ellipsoid(low,0,.92,0,.18,.06,.18,3,.3,8,4,1);   // v5.2 layered umbrella
  ellipsoid(rock,0,.28,0,.5,.34,.5,11,.45,14,7,1);
  return [tree,low,rock].map(uploadMesh);
 }
@@ -3312,6 +3312,7 @@ function tutMaybeStart(){
 window.__pilot={get profile(){return profile;},cloud,theatre,tut,tutStart,tutEnd,showSignup,cloudPush,TUT,get shots(){return shotsFired;}};
 
 window.__game={game,openGarage,garage,garageType,renderGarage,previewVehicle,deployFromGarage,setWater(m){waterMode=m;},tp(x,z,hd){player.x=x;player.z=z;if(hd!==undefined)player.hd=hd;player.v=0;},refreshPort,dockCandidate,startDock,callTug,newVoyage,startService,setPortTab,castOff,portName,saveGame,loadGame,hasSave,get state(){return game.state;}};
+window.__dev={setVehicle:s=>setVehicle(s),nodeSpec:n=>nodeSpec(typeof n==='string'?NODE.get(n):n),get VS(){return VS;},giants:()=>{const o=[];for(const R of giantRegions.values())for(const g of R.giants)o.push([g.x,g.y,g.z,g.height,g.crown]);return o;}};   // test hooks (screenshots, checks)
 
 // ---------- roads: a ribbon laid on the ground along every route near the camera ----------
 // The terrain also carries a faint asphalt tint along the roads, so far away (and wherever the coarse terrain
@@ -5298,7 +5299,7 @@ const SHIP_DES={
  S5d:{cls:'bb',L:270,B:33,fb:8.2,dr:11,bk:.86,c:[.34,.39,.46],d:[.56,.45,.31],lv:1.15,gr:2.9,tn:3,num:'58',form:{..._HF.bb},guns:[[31,0,0],[21.5,0,1],[-23,1,0]],sec:{g:[[-33,0,0,0]]}},
  S6c:{cls:'bb',L:281,B:37,fb:8.6,dr:11,bk:.96,c:[.31,.33,.35],d:[.55,.43,.3],lv:1.0,gr:2.8,tn:3,num:'66',form:{..._HF.bb,bT:.42},guns:[[34,0,0],[25.5,0,1],[-19.5,1,1],[-28,1,0]],
   sec:{f:[[45,0,0,0],[-45,0,0,0],[17,.7,0,0],[17,-.7,0,0]]}},
- S7:{cls:'bb',L:400,B:86,fb:11,dr:13,bk:1.08,cap:900,mv:8,i1Lift:1.7,fa:1,c:[.13,.13,.15],d:[.42,.32,.22],lv:1.0,gr:3.0,tn:3,num:'1',form:{..._HF.bb,sW:.06,sT:.3,bT:.55,flare:.14,sheer:.38,rake:.06,sR:0},guns:[],fx:[[40,0.45,0,0],[40,-0.45,0,0],[30,0.78,0,0],[30,-0.78,0,0],[7.5,0.82,0,0],[7.5,-0.82,0,0],[0.5,0.82,0,0],[0.5,-0.82,0,0],[-6.5,0.82,3.1416,0],[-6.5,-0.82,3.1416,0],[-30,0.78,3.1416,0],[-30,-0.78,3.1416,0],[-40,0.45,3.1416,0],[-40,-0.45,3.1416,0]],med:[[11,0.7,0,0],[11,-0.7,0,0],[4,0.7,0,0],[4,-0.7,0,0],[-3,0.7,3.1416,0],[-3,-0.7,3.1416,0],[-10,0.7,3.1416,0],[-10,-0.7,3.1416,0]],i1:[[36,0,0],[29.5,0,1],[17.5,0,2],[-17.5,1,2],[-29.5,1,1],[-36,1,0]],sec:{g:[[33,.8,0,0],[33,-.8,0,0],[13,.93,0,0],[13,-.93,0,0],[8,.93,0,0],[8,-.93,0,0],[3,.93,0,0],[3,-.93,0,0],[-3,.93,3.1416,0],[-3,-.93,3.1416,0],[-8,.93,3.1416,0],[-8,-.93,3.1416,0],[-13,.93,3.1416,0],[-13,-.93,3.1416,0],[-33,.8,3.1416,0],[-33,-.8,3.1416,0]]}},   // v4.9 the Flagship: Bismarck lines drawn to a point at both ends; six I1 super-guns as the main battery on the centreline, sixteen secondary mounts, helicopters, missile fields and AA everywhere
+ S7:{cls:'bb',L:400,B:86,fb:11,dr:13,bk:1.08,cap:900,mv:8,i1Lift:1.7,fa:1,c:[.31,.33,.37],d:[.42,.32,.22],lv:1.0,gr:3.0,tn:3,num:'1',form:{..._HF.bb,sW:.06,sT:.3,bT:.55,flare:.14,sheer:.38,rake:.06,sR:0},guns:[],fx:[[40,0.45,0,0],[40,-0.45,0,0],[30,0.78,0,0],[30,-0.78,0,0],[7.5,0.82,0,0],[7.5,-0.82,0,0],[0.5,0.82,0,0],[0.5,-0.82,0,0],[-6.5,0.82,3.1416,0],[-6.5,-0.82,3.1416,0],[-30,0.78,3.1416,0],[-30,-0.78,3.1416,0],[-40,0.45,3.1416,0],[-40,-0.45,3.1416,0]],med:[[11,0.7,0,0],[11,-0.7,0,0],[4,0.7,0,0],[4,-0.7,0,0],[-3,0.7,3.1416,0],[-3,-0.7,3.1416,0],[-10,0.7,3.1416,0],[-10,-0.7,3.1416,0]],i1:[[36,0,0],[29.5,0,1],[17.5,0,2],[-17.5,1,2],[-29.5,1,1],[-36,1,0]],sec:{g:[[33,.8,0,0],[33,-.8,0,0],[13,.93,0,0],[13,-.93,0,0],[8,.93,0,0],[8,-.93,0,0],[3,.93,0,0],[3,-.93,0,0],[-3,.93,3.1416,0],[-3,-.93,3.1416,0],[-8,.93,3.1416,0],[-8,-.93,3.1416,0],[-13,.93,3.1416,0],[-13,-.93,3.1416,0],[-33,.8,3.1416,0],[-33,-.8,3.1416,0]]}},   // v4.9 the Flagship: Bismarck lines drawn to a point at both ends; six I1 super-guns as the main battery on the centreline, sixteen secondary mounts, helicopters, missile fields and AA everywhere
  // ---- carriers
  S5c:{cls:'cv',L:296,B:34,fb:10.5,dr:10.5,fd:17.5,bk:.84,c:[.47,.5,.52],d:[.2,.21,.22],lv:.95,num:'15',form:{..._HF.cv},guns:[],sec:{f:[[40,.6,0,-1.9],[40,-.58,0,-1.9],[-43,.72,0,-1.9],[-43,-.72,0,-1.9]]}},
  S6b:{cls:'cv',L:333,B:41,fb:11.5,dr:11.3,fd:19.5,bk:.86,c:[.53,.55,.57],d:[.19,.2,.21],lv:.85,num:'30',form:{..._HF.cv},guns:[],sec:{f:[[40,.6,0,-1.9],[40,-.58,0,-1.9],[-43,.72,0,-1.9],[-43,-.72,0,-1.9]]}}};
@@ -5689,7 +5690,7 @@ function shipMeshTree(spec){
  const liftOf=m=>{let b=0;for(const d of dm)if(d.ly&&Math.hypot(d.x-m.x,d.z-m.z)<.8*p)b=d.ly;return b;};
  const isGun=m=>{const d0=modDef(m.t),d=d0&&d0.look?modDef(d0.look):d0;return d&&d.grp==='gun'&&d.type!=='tank'&&d.type!=='plane';};
  mods.forEach((m,i)=>{if(m.ghost)return;const ly=liftOf(m),y0=flat?FY:Y(m.x),g=isGun(m);
-  if(g&&ly>0)cylY(M,m.x,y0,m.z,D.gr*p*.97,ly,14,dark);
+  if(g&&ly>0){cylY(M,m.x,y0,m.z,D.gr*p*.97,ly,18,shade(top,.92));cylY(M,m.x,y0+ly-.5*q,m.z,D.gr*p*1.01,.5*q,18,shade(top,.7));cylY(M,m.x,y0,m.z,D.gr*p*1.03,.35*q,18,shade(top,.75));}   // v5.2 barbettes: painted, with armour rings
   if(m.t==='f'&&D.cls!=='pt'){const hd=m.x<0?Math.PI:0,yy=y0+ly;                         // the small guns, in the look of the ship's era
    if(D.cls==='cv')ciws(m.x,yy,m.z,hd);else if(D.cls==='mon'||id==='S1')aa1(m.x,yy,m.z,hd);else dp(m.x,yy,m.z,hd,D.cls==='bb'?1.1:.85);return;}
   buildMod(M,m,{h,q,dark,light,top,yAt:()=>y0+ly,gunN:m.i1?1:m.med?2:D.tn,gs:GS,round:D.round,mg:D.mg},i);});

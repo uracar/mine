@@ -375,6 +375,8 @@ void main(){
  vec3 col;
  float occl=.5+.5*smoothstep(0.,.9,vInfo.y);
  float back=0.;
+ vec3 emis=vec3(0.);
+ float glowK=.06+uNight*1.6;                                  // v5.2 Pandora: the forest glows - faintly by day, brightly at night
  if(uType>1.5){                                                // rock
   float gr=vnoise(wp.xz*2.7+wp.y*3.1)*.5+vnoise(vec2(wp.x+wp.z,wp.y)*7.)*.5;
   vec3 r0=lin(vec3(.40,.38,.35)),r1=lin(vec3(.27,.25,.23)),r2=lin(vec3(.52,.45,.36));
@@ -386,17 +388,23 @@ void main(){
   col=lin(vec3(.15,.11,.14))*(.45+.9*bark);
   N=normalize(N+vec3(cos(ang),0.,sin(ang))*(bark-.5)*.8);
   occl=.55+.45*smoothstep(0.,.35,vInfo.y);
+  float lich=smoothstep(.8,.9,vnoise(vec2(ang*14.,vP.y*22.)))*(1.-smoothstep(.05,.45,vInfo.y));   // glowing lichen up the foot of the trunk
+  emis+=lin(vec3(.25,.85,1.))*lich*glowK*.9;
  }else if(vInfo.x>1.5){                                        // hanging vines: thin dark strands with lighter tips
   float strand=vnoise(vec2(vP.x*vP.z*900.+vP.x*300.,vP.y*3.));
-  col=mix(lin(vec3(.02,.09,.08)),lin(vec3(.1,.32,.28)),clamp(strand+(1.-vInfo.y)*.3,0.,1.));
+  col=mix(lin(vec3(.03,.13,.12)),lin(vec3(.16,.46,.40)),clamp(strand+(1.-vInfo.y)*.3,0.,1.));
   occl=.6;back=.5;
+  emis+=mix(lin(vec3(.2,.9,1.)),lin(vec3(.85,.35,1.)),step(.6,vTint))*smoothstep(.55,.9,strand)*glowK*1.3;   // glowing strands
  }else{                                                        // leaves: three scales of colour variation
-  vec3 la=lin(vec3(.01,.07,.07)),lb=lin(vec3(.05,.22,.19));   // v4.9 Pandora canopies
+  vec3 la=lin(vec3(.03,.14,.10)),lb=lin(vec3(.09,.36,.23));   // v5.2 brighter, more saturated Pandora canopies
   float nd=1.-smoothstep(150.,900.,dist);
   float big=vnoise(wp.xz*.011+wp.y*.009),mid=vnoise(wp.xz*.06+wp.y*.07),fine=vnoise(wp.xz*.45+wp.y*.5);
   N=normalize(N+(vec3(vnoise(wp.xz*.05+wp.y*.07),vnoise(wp.zx*.06-wp.y*.05),vnoise(wp.yx*.05))-.5)*1.4*nd);
   vec3 leaf=mix(la,lb,clamp(vTint*.5+vInfo.y*.35+big*.45,0.,1.));
-  if(vTint>.72)leaf=mix(leaf,lin(vec3(.40,.10,.36)),.75*(vTint-.72)*3.6);       // purple and magenta crowns
+  if(vTint>.72)leaf=mix(leaf,lin(vec3(.46,.14,.50)),.8*(vTint-.72)*3.6);       // purple and magenta crowns
+  if(vTint<.16)leaf=mix(leaf,lin(vec3(.06,.26,.44)),(.16-vTint)*5.);            // and a few deep blue ones
+  {float sp=smoothstep(.72,.9,vnoise3(wp*.45));                        // bioluminescent spots in the leaves
+   emis+=mix(lin(vec3(.25,.95,.85)),lin(vec3(.95,.35,.9)),step(.55,vTint))*sp*glowK*.8*(1.-smoothstep(600.,2500.,dist));}
   float clump=smoothstep(.3,.7,vnoise(wp.xz*.085+wp.y*.12));           // leaf clusters
   col=leaf*(.5+.75*(clump*.4+mid*.35+fine*.25*nd));
   occl*=mix(.72,1.,smoothstep(-.8,.4,N.y));                       // the underside of a canopy sits in its own shade
@@ -408,7 +416,7 @@ void main(){
  vec3 light=uLightCol*diff*sunUp*mix(.55,1.,occl)*sunSh+amb*1.9+uLightCol*.06*sunUp;
  light+=uLightCol*back*pow(max(dot(-V,uLightDir),0.),3.)*.35*sunUp;
  light+=back*uLightCol*lin(vec3(.2,.6,.5))*max(-dot(N,uLightDir),0.)*.35*sunUp;   // light shining through thin leaves
- vec3 res=mix(col*light,fogColor(-V),fogAmount(dist));
+ vec3 res=mix(col*light+emis,fogColor(-V),fogAmount(dist));
  gl_FragDepth=clamp(log2(vLogW)*uFcoef*.5,0.,1.);
  oCol=vec4(res,1.);
 }`;
