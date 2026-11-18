@@ -33,7 +33,7 @@ const smooth=(a,b,x)=>{const t=clamp((x-a)/(b-a),0,1);return t*t*(3-2*t);};
 
 // ---------- v5.0 the noise lattice: every shader's value noise reads this one texture (unit 7, bound once) ----------
 // r: a random value per lattice point; g: the r of the point (37,17) further on, so a 3D noise is one fetch (two z slices at once)
-const NOISE_UNIT=7;
+const NOISE_UNIT=7,SHADOW_UNIT=6;
 {
  const N=256,d=new Uint16Array(N*N*2),r=new Float32Array(N*N);let h=0x9e3779b9;
  for(let i=0;i<N*N;i++){h^=h<<13;h^=h>>>17;h^=h<<5;r[i]=(h>>>0)/4294967296;}
@@ -66,10 +66,10 @@ function program(vs,fs,name){
  if(!gl.getProgramParameter(p,gl.LINK_STATUS)){fail(name+' link failed: '+gl.getProgramInfoLog(p));return null;}
  const u={};const n=gl.getProgramParameter(p,gl.ACTIVE_UNIFORMS);
  for(let i=0;i<n;i++){const info=gl.getActiveUniform(p,i);const nm=info.name.replace(/\[0\]$/,'');u[nm]=gl.getUniformLocation(p,info.name);}
- if(u.uNoiseTex){gl.useProgram(p);gl.uniform1i(u.uNoiseTex,NOISE_UNIT);gl.useProgram(null);}
+ if(u.uNoiseTex||u.uShadowMap){gl.useProgram(p);if(u.uNoiseTex)gl.uniform1i(u.uNoiseTex,NOISE_UNIT);if(u.uShadowMap)gl.uniform1i(u.uShadowMap,SHADOW_UNIT);gl.useProgram(null);}
  return {p,u};
 }
-const progSky=program(SKY_VS,SKY_FS,'sky'),progTerrain=program(TERRAIN_VS,TERRAIN_FS,'terrain'),progWater=program(WATER_VS,WATER_FS,'water'),progTree=program(TREE_VS,TREE_FS,'tree'),progBld=program(BLD_VS,BLD_FS,'harbour'),progRoad=program(ROAD_VS,ROAD_FS,'road'),progUnit=program(UNIT_VS,UNIT_FS,'unit');
+let progSky=program(SKY_VS,SKY_FS,'sky'),progTerrain=program(TERRAIN_VS,TERRAIN_FS,'terrain'),progWater=program(WATER_VS,WATER_FS,'water'),progTree=program(TREE_VS,TREE_FS,'tree'),progBld=program(BLD_VS,BLD_FS,'harbour'),progRoad=program(ROAD_VS,ROAD_FS,'road'),progUnit=program(UNIT_VS,UNIT_FS,'unit');
 // the same ocean again, but with the depth written by the vertex stage instead of the fragment stage: a fallback for graphics drivers that drop the first
 const progWaterB=program(WATER_VS.replace('gl_Position=clip;','gl_Position=logDepth(clip);'),WATER_FS.replace(/ gl_FragDepth=clamp\(log2\(vLogW\)\*uFcoef\*\.5,0\.,1\.\);\n/,'\n'),'water B');
 const progWaterC=program(WATER_C_VS,WATER_C_FS,'water C');
@@ -77,14 +77,50 @@ const progRain=program(RAIN_VS,RAIN_FS,'rain');
 const progDown=program(POST_VS,BLOOM_DOWN_FS,'bloom down'),progUp=program(POST_VS,BLOOM_UP_FS,'bloom up'),progFinal=program(POST_VS,FINAL_FS,'final');
 if(![progSky,progTerrain,progWater,progTree,progBld,progRoad,progUnit,progDown,progUp,progFinal].every(Boolean))return;
 
+// ---------- v5.0 sun shadows: a depth map drawn from the sun over a square around the player ----------
+// Ships, vehicles, harbour and town buildings and (above Low) trees are drawn into it with a do-nothing fragment shader; every lit
+// surface then looks itself up in it (sunShadow in GLSL_COMMON). #noshadow turns it off.
+const SHADOW_FS=GLSL_HEAD+'out vec4 oCol;void main(){oCol=vec4(1.);}';
+const progUnitS=program(UNIT_VS,SHADOW_FS,'unit shadow'),progBldS=program(BLD_VS,SHADOW_FS,'harbour shadow'),progTreeS=program(TREE_VS,SHADOW_FS,'tree shadow');
+const SH={tex:null,fb:null,size:0,vp:new Float32Array(16),P:new Float32Array(4),ok:!!(progUnitS&&progBldS&&progTreeS)&&!/(^|[#&])noshadow/.test(location.hash)};
+function shadowTarget(size){
+ if(SH.size===size)return;
+ if(SH.tex)gl.deleteTexture(SH.tex);if(SH.fb)gl.deleteFramebuffer(SH.fb);
+ const t=gl.createTexture();gl.activeTexture(gl.TEXTURE0+SHADOW_UNIT);gl.bindTexture(gl.TEXTURE_2D,t);
+ gl.texStorage2D(gl.TEXTURE_2D,1,gl.DEPTH_COMPONENT24,size,size);
+ gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MIN_FILTER,gl.LINEAR);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MAG_FILTER,gl.LINEAR);
+ gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_S,gl.CLAMP_TO_EDGE);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_T,gl.CLAMP_TO_EDGE);
+ gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_COMPARE_MODE,gl.COMPARE_REF_TO_TEXTURE);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_COMPARE_FUNC,gl.LEQUAL);
+ gl.activeTexture(gl.TEXTURE0);
+ const fb=gl.createFramebuffer();gl.bindFramebuffer(gl.FRAMEBUFFER,fb);
+ gl.framebufferTexture2D(gl.FRAMEBUFFER,gl.DEPTH_ATTACHMENT,gl.TEXTURE_2D,t,0);gl.drawBuffers([gl.NONE]);gl.readBuffer(gl.NONE);
+ if(gl.checkFramebufferStatus(gl.FRAMEBUFFER)!==gl.FRAMEBUFFER_COMPLETE)SH.ok=false;
+ gl.bindFramebuffer(gl.FRAMEBUFFER,null);
+ SH.tex=t;SH.fb=fb;SH.size=size;
+}
+shadowTarget(1);                       // a placeholder so the shadow sampler always has a texture
+// the sun's view of a square of half-width R centred on (fx,fz), as a matrix for camera-relative positions; snapped to whole texels
+// so the shadow edges don't crawl as the camera moves
+function shadowMatrix(L,fx,fy,fz,R,size,camP){
+ const f=[-L[0],-L[1],-L[2]],r=norm(cross(f,[0,1,0])),u=cross(r,f),D=R+400,tx=2*R/size;
+ const cr=Math.round((r[0]*fx+r[1]*fy+r[2]*fz)/tx)*tx,cu=Math.round((u[0]*fx+u[1]*fy+u[2]*fz)/tx)*tx,cf=f[0]*fx+f[1]*fy+f[2]*fz;
+ const ox=r[0]*camP[0]+r[1]*camP[1]+r[2]*camP[2]-cr,oy=u[0]*camP[0]+u[1]*camP[1]+u[2]*camP[2]-cu,oz=f[0]*camP[0]+f[1]*camP[1]+f[2]*camP[2]-cf;
+ const m=SH.vp;   // column-major
+ m[0]=r[0]/R;m[4]=r[1]/R;m[8]=r[2]/R;m[12]=ox/R;
+ m[1]=u[0]/R;m[5]=u[1]/R;m[9]=u[2]/R;m[13]=oy/R;
+ m[2]=f[0]/D;m[6]=f[1]/D;m[10]=f[2]/D;m[14]=oz/D;
+ m[3]=0;m[7]=0;m[11]=0;m[15]=1;
+ SH.P[0]=1/size;SH.P[1]=tx*1.2;SH.P[2]=.25/(2*D);
+}
+
 // ---------- settings ----------
 const params=new URLSearchParams(location.hash.slice(1));
 // giant: how far the huge trees are drawn; rock: how far rocks are drawn (metres)
 const QUALITY=[
- {name:'Low',detail:0,scale:.85,dpr:1,msaa:0,N:32,K:1.1,bloom:false,giant:2800,rock:400,road:1000},   // v5.0 lighter: 85% render scale (sharpened), shorter draw distances
- {name:'Medium',detail:1,scale:1,dpr:1.25,msaa:0,N:40,K:1.2,bloom:true,giant:5500,rock:800,road:2000},
- {name:'High',detail:1,scale:1,dpr:2,msaa:4,N:40,K:1.4,bloom:true,giant:7500,rock:1200,road:2600},
- {name:'Ultra',detail:1,scale:1,dpr:2,msaa:4,N:48,K:1.8,bloom:true,giant:10000,rock:1600,road:3200}];
+ {name:'Low',detail:0,scale:.85,dpr:1,msaa:0,N:32,K:1.1,bloom:false,giant:2800,rock:400,road:1000,sh:1024,shR:130,shTrees:false},   // v5.0 lighter: 85% render scale (sharpened), shorter draw distances
+ {name:'Medium',detail:1,scale:1,dpr:1.25,msaa:0,N:40,K:1.2,bloom:true,giant:5500,rock:800,road:2000,sh:2048,shR:240,shTrees:true},
+ {name:'High',detail:1,scale:1,dpr:2,msaa:4,N:40,K:1.4,bloom:true,giant:7500,rock:1200,road:2600,sh:2048,shR:340,shTrees:true},
+ {name:'Ultra',detail:1,scale:1,dpr:2,msaa:4,N:48,K:1.8,bloom:true,giant:10000,rock:1600,road:3200,sh:4096,shR:480,shTrees:true}];
 // v3.4: integrated and low-power graphics start on Low (the frame-rate governor can raise it again); everything else on Medium
 const WEAK_GPU=(()=>{try{const e=gl.getExtension('WEBGL_debug_renderer_info'),r=String(e?gl.getParameter(e.UNMASKED_RENDERER_WEBGL):gl.getParameter(gl.RENDERER));
  return /Intel|UHD|HD Graphics|Iris|Mali|Adreno|PowerVR|SwiftShader|llvmpipe|Microsoft Basic|Radeon\(TM\) Graphics|Vega \d Graphics/i.test(r)||(navigator.hardwareConcurrency||4)<=4;}catch(x){return false;}})();
@@ -4290,7 +4326,7 @@ function vTypeOfKind(k){
  if(k===UNIT.PLANEAI||k===UNIT.HELI||k===UNIT.TRANSPORT)return 3;
  return 0;
 }
-function drawUnitKinds(planes,vp,common,stats,kinds){
+function drawUnitKinds(planes,vp,common,stats,kinds,noLod){
  gl.useProgram(progUnit.p);common(progUnit);setU(progUnit,'uVP',vp);setU(progUnit,'uOrigRel',[0,0]);
  const dScale=opts.detail||1;
  for(const k of kinds){
@@ -4302,7 +4338,7 @@ function drawUnitKinds(planes,vp,common,stats,kinds){
   for(let i=0;i<n;i++){
    const o=i*UNIT_FLOATS,x=L[o],y=L[o+1]-cam.y,z=L[o+2],d2=x*x+z*z;
    if(d2>R2)continue;
-   if(d2>lodD2){for(let c=0;c<UNIT_FLOATS;c++)LL.push(L[o+c]);continue;}      // far away: hand it to the low-detail kind, drawn later
+   if(d2>lodD2){if(!noLod)for(let c=0;c<UNIT_FLOATS;c++)LL.push(L[o+c]);continue;}      // far away: hand it to the low-detail kind, drawn later
    if(!visible(planes,x,y,z,rad))continue;
    for(let c=0;c<UNIT_FLOATS;c++)out[kept*UNIT_FLOATS+c]=L[o+c];kept++;
   }
@@ -14103,6 +14139,37 @@ function checkSea(){
 }
 const stats={drawn:0,chunks:0,tris:0,trees:0,units:0,ready:false};
 window.__world={cam,stats,chunks,giantAt,GCELL,portNear:()=>portNear,unitList,units,helm,orbit,__T:T,get player(){return player;},get mode(){return camMode;},setTime:t=>{tod=t;},get ready(){return stats.ready;}};
+function shadowPass(A,common){
+ const L=A.lightDir;
+ SH.P[3]=0;
+ if(!SH.ok||!Q.sh||SH.auto||L[1]<.08||window.__noShadow)return;     // sun (or moon) too low: long smeared shadows look worse than none
+ shadowTarget(Q.sh);if(!SH.ok)return;
+ gpuMark('shadow');
+ const fx=player?player.x:cam.x,fz=player?player.z:cam.z,fy=player?Math.max(0,T.height(fx,fz)):Math.max(0,T.height(fx,fz)),R=Q.shR;
+ const fw=fwdVec(),fl=Math.hypot(fw[0],fw[2])||1;            // shift the square a little ahead of the camera: that is where the eye looks
+ shadowMatrix(L,fx+fw[0]/fl*R*.35,fy,fz+fw[2]/fl*R*.35,R,Q.sh,[cam.x,cam.y,cam.z]);
+ gl.activeTexture(gl.TEXTURE0+SHADOW_UNIT);gl.bindTexture(gl.TEXTURE_2D,null);gl.activeTexture(gl.TEXTURE0);   // never sample the map while drawing it
+ gl.bindFramebuffer(gl.FRAMEBUFFER,SH.fb);gl.viewport(0,0,Q.sh,Q.sh);
+ gl.depthMask(true);gl.clearDepth(1);gl.clear(gl.DEPTH_BUFFER_BIT);
+ gl.enable(gl.DEPTH_TEST);gl.depthFunc(gl.LEQUAL);gl.disable(gl.BLEND);gl.disable(gl.CULL_FACE);
+ gl.enable(gl.POLYGON_OFFSET_FILL);gl.polygonOffset(1.5,3);
+ const planes=frustum(SH.vp),vp=SH.vp,keep=[progUnit,progBld,progTree],dummy={tris:0,units:0,trees:0,v:0};
+ progUnit=progUnitS;progBld=progBldS;progTree=progTreeS;
+ try{
+  const skip=new Set([UNIT.SPLASH,UNIT.BLAST,UNIT.SHELL,UNIT.FOAM,UNIT.DUST,UNIT.SMOKE,UNIT.SPRAY].filter(k=>k!==undefined));
+  if(!Q.shTrees)for(const k of PLANT_K)skip.add(k);
+  if(!solidKinds)return;                                          // the main pass builds the kind list on its first frame
+  const kinds=solidKinds.filter(k=>!skip.has(k)&&!lodKinds.includes(k));
+  drawUnitKinds(planes,vp,common,dummy,kinds,true);
+  drawPorts(planes,vp,common,dummy);drawTowns(planes,vp,common,dummy);
+  if(Q.shTrees)drawVegetation(planes,vp,common,dummy);
+ }finally{
+  progUnit=keep[0];progBld=keep[1];progTree=keep[2];
+  gl.bindVertexArray(null);gl.disable(gl.POLYGON_OFFSET_FILL);
+  gl.activeTexture(gl.TEXTURE0+SHADOW_UNIT);gl.bindTexture(gl.TEXTURE_2D,SH.tex);gl.activeTexture(gl.TEXTURE0);
+ }
+ SH.P[3]=1;
+}
 const MANUAL=params.has('manual');
 let manualT=1000;
 const freeVel=[0,0,0];
@@ -14127,6 +14194,8 @@ function frame(now){
    // v3.1: aim for a smooth 60 - start trimming at 46 fps, not 34 (smoothness matters more than detail in a fight)
    if(fps<50&&adaptT>1&&dyn>floor+.01){dyn=Math.max(floor,dyn-.1);adaptT=0;slowN++;W=0;}
    else if(fps<50&&adaptT>1&&qi>0&&dyn<=floor+.01){qi--;slowN=0;applyQuality(true);adaptT=-3;}   // at the floor: trim draw distance and effects instead of pixels
+   else if(fps<30&&adaptT>1&&qi===0&&dyn<=floor+.01&&!SH.auto){SH.auto=true;adaptT=-3;}   // v5.0 last resort on Low: drop the sun shadows
+   else if(SH.auto&&fps>45&&adaptT>20){SH.auto=false;adaptT=-3;}
    else if(fps>55&&adaptT>6&&dyn<1){dyn=Math.min(1,dyn+.05);adaptT=0;W=0;}
   }else if(opts.res!=='auto'&&dyn!==1){dyn=1;W=0;}
  }
@@ -14172,7 +14241,9 @@ function frame(now){
   setU(p,'uCam',[cam.x,cam.y,cam.z]);setU(p,'uSunDir',A.sun);setU(p,'uSunCol',A.sc);setU(p,'uLightDir',A.lightDir);setU(p,'uLightCol',A.lightCol);
   setU(p,'uMoonDir',A.moon);setU(p,'uSkyTop',A.top);setU(p,'uSkyHor',A.hor);setU(p,'uAmbUp',A.ambUp);setU(p,'uAmbDown',A.ambDown);
   setU(p,'uTime',t);setU(p,'uNight',A.night);setU(p,'uFcoef',FCOEF);setU(p,'uCloudH',2600);setU(p,'uCover',coverNow());setU(p,'uFogScale',fogScaleNow());
+  if(p.u.uShadowVP){setU(p,'uShadowVP',SH.vp);setU(p,'uShadowP',SH.P);}
  };
+ shadowPass(A,common);gl.bindFramebuffer(gl.FRAMEBUFFER,fbScene);gl.viewport(0,0,W,H);
  // terrain
  gpuMark('terrain');
  gl.disable(gl.CULL_FACE);gl.disable(gl.BLEND);gl.enable(gl.DEPTH_TEST);gl.depthFunc(gl.LEQUAL);

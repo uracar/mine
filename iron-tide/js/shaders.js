@@ -1,6 +1,6 @@
 var HP_MUL={ship:3.5,tank:1.25,plane:.5},HP_PER=1300;
 // GLSL ES 3.00 shaders. Everything is written in linear HDR; the last pass does tone mapping.
-const GLSL_HEAD='#version 300 es\nprecision highp float;\nprecision highp int;\nprecision highp sampler2D;\n';
+const GLSL_HEAD='#version 300 es\nprecision highp float;\nprecision highp int;\nprecision highp sampler2D;\nprecision highp sampler2DShadow;\n';
 
 // shared by every scene shader: atmosphere, noise, fog
 const GLSL_COMMON=`
@@ -46,6 +46,20 @@ vec3 fogColor(vec3 d){
  return skyBase(dd);
 }
 float fogAmount(float dist){float x=dist*uFogScale;return 1.-exp(-x*sqrt(x));}
+// v5.0 sun shadows: one depth map from the sun around the player (ships, buildings, trees), four filtered taps
+uniform sampler2DShadow uShadowMap;
+uniform mat4 uShadowVP;       // camera-relative position -> the sun's clip space
+uniform vec4 uShadowP;        // texel size (uv), normal offset (m), depth bias, on (0/1)
+float sunShadow(vec3 rel,vec3 n){
+ if(uShadowP.w<.5)return 1.;
+ vec4 c=uShadowVP*vec4(rel+n*uShadowP.y,1.);
+ float edge=max(abs(c.x),abs(c.y));if(edge>=1.||abs(c.z)>=1.)return 1.;
+ vec3 s=c.xyz*.5+.5;s.z-=uShadowP.z;
+ float t=uShadowP.x*.5;
+ float v=(texture(uShadowMap,vec3(s.xy+vec2(-t,-t),s.z))+texture(uShadowMap,vec3(s.xy+vec2(t,-t),s.z))
+        +texture(uShadowMap,vec3(s.xy+vec2(-t,t),s.z))+texture(uShadowMap,vec3(s.xy+vec2(t,t),s.z)))*.25;
+ return mix(v,1.,smoothstep(.8,1.,edge));
+}
 vec4 logDepth(vec4 clip){clip.z=(log2(max(1e-6,1.+clip.w))*uFcoef-1.)*clip.w;return clip;}
 `;
 
@@ -286,7 +300,8 @@ void main(){
    under*=1.-.25*(1.-smoothstep(.0,.9,length(d)/r));
   }
  }
- vec3 light=uLightCol*ndl*sunUp*shade+amb*mix(1.,.8,1.-under);
+ float sunSh=sunShadow(vRel,normalize(vN));
+ vec3 light=uLightCol*ndl*sunUp*shade*sunSh+amb*mix(1.,.8,1.-under)*mix(.8,1.,sunSh);
  // backlight through foliage and a little sheen on snow and wet sand
  light+=uLightCol*forestW*pow(max(dot(-V,uLightDir),0.),3.)*.12*sunUp;
  vec3 res=col*light;
@@ -389,7 +404,8 @@ void main(){
  }
  float diff=max(dot(N,uLightDir)*.7+.3,0.);
  vec3 amb=mix(uAmbDown,uAmbUp,N.y*.5+.5)*occl;
- vec3 light=uLightCol*diff*sunUp*mix(.55,1.,occl)+amb*1.9+uLightCol*.06*sunUp;
+ float sunSh=sunShadow(vRel,N);
+ vec3 light=uLightCol*diff*sunUp*mix(.55,1.,occl)*sunSh+amb*1.9+uLightCol*.06*sunUp;
  light+=uLightCol*back*pow(max(dot(-V,uLightDir),0.),3.)*.35*sunUp;
  light+=back*uLightCol*lin(vec3(.2,.6,.5))*max(-dot(N,uLightDir),0.)*.35*sunUp;   // light shining through thin leaves
  vec3 res=mix(col*light,fogColor(-V),fogAmount(dist));
@@ -506,9 +522,10 @@ void main(){
  float sunUp=smoothstep(-.03,.08,uLightDir.y);
  float diff=max(dot(N,uLightDir),0.);
  vec3 amb=mix(uAmbDown,uAmbUp,N.y*.5+.5)*(.55+.45*smoothstep(0.,6.,y+(top?6.:0.)));
- vec3 res=base*(uLightCol*diff*sunUp+amb*1.5)+emis;
+ float sunSh=sunShadow(vRel,N);
+ vec3 res=base*(uLightCol*diff*sunUp*sunSh+amb*1.5*mix(.8,1.,sunSh))+emis;
  vec3 H=normalize(uLightDir+V);
- res+=uLightCol*sunUp*pow(max(dot(N,H),0.),glass>0.?60.:24.)*(glass*.9+spec);
+ res+=uLightCol*sunUp*sunSh*pow(max(dot(N,H),0.),glass>0.?60.:24.)*(glass*.9+spec);
  {float ndvB=max(dot(N,V),0.),frB=.04+.96*pow(1.-ndvB,5.);vec3 envB=skyBase(reflect(-V,N));
   res=mix(res,envB,clamp(glass*(.35+frB)+spec*(.3+frB)*.6+frB*.06,0.,.8)*(1.-smoothstep(300.,900.,dist)));}  // glass towers and tin roofs mirror the sky
  res=mix(res,fogColor(-V),fogAmount(dist));
@@ -565,7 +582,7 @@ void main(){
  alpha*=(1.-hole)*(1.-smoothstep(uFarR*.7,uFarR,dist));
  float sunUp=smoothstep(-.03,.08,uLightDir.y);
  float ndl=clamp(uLightDir.y,0.,1.)*.92+.08;
- vec3 light=uLightCol*ndl*sunUp+mix(uAmbDown,uAmbUp,.85);
+ vec3 light=uLightCol*ndl*sunUp*sunShadow(vRel,vec3(0.,1.,0.))+mix(uAmbDown,uAmbUp,.85);
  vec3 res=mix(col*light,fogColor(-V),fogAmount(dist));
  gl_FragDepth=clamp(log2(vLogW)*uFcoef*.5,0.,1.);
  oCol=vec4(res,alpha);
@@ -715,7 +732,8 @@ void main(){
    }
   }
   float ndl=dot(N,uLightDir),sunU=smoothstep(-.03,.08,uLightDir.y);
-  vec3 Lt=uLightCol*max(ndl,0.)*sunU*occ+mix(uAmbDown,uAmbUp,N.y*.5+.5)*occ*1.05;
+  float sunSh=sunShadow(vRel,N);
+  vec3 Lt=uLightCol*max(ndl,0.)*sunU*occ*sunSh+mix(uAmbDown,uAmbUp,N.y*.5+.5)*occ*1.05;
   Lt+=trans*uLightCol*lin(vec3(.5,.85,.55))*max(-ndl,0.)*.5*sunU;
   Lt+=trans*uLightCol*pow(max(dot(-V,uLightDir),0.),4.)*.3*sunU;
   vec3 Hh=normalize(uLightDir+V);
@@ -779,11 +797,12 @@ void main(){
  float sunUp=smoothstep(-.03,.08,uLightDir.y);
  float ndl=max(dot(N,uLightDir),0.);
  float sky=N.y*.5+.5;
- vec3 light=uLightCol*ndl*sunUp+mix(uAmbDown,uAmbUp,sky)*(.7+.3*sky);
+ float sunSh=sunShadow(vRel,N);
+ vec3 light=uLightCol*ndl*sunUp*sunSh+mix(uAmbDown,uAmbUp,sky)*(.7+.3*sky)*mix(.75,1.,sunSh);
  float ndv=max(dot(N,V),0.),fr=.04+.96*pow(1.-ndv,5.);
  vec3 H=normalize(uLightDir+V);
  float nh=max(dot(N,H),0.);
- vec3 spec=uLightCol*(pow(nh,28.)*.10+pow(nh,140.)*.45)*sunUp*(.4+.6*smoothstep(.45,.0,lum));
+ vec3 spec=uLightCol*(pow(nh,28.)*.10+pow(nh,140.)*.45)*sunUp*sunSh*(.4+.6*smoothstep(.45,.0,lum));
  vec3 res=col*light+spec;
  if(uDet>.5&&vCol.w<6.5){
   // the sky and the sea in the paint: grazing angles and dark glassy surfaces mirror their surroundings
