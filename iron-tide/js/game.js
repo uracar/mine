@@ -4270,7 +4270,7 @@ function updateUnits(t,dt){
  for(const p of portNear)if(!garrisoned.has(p.id)){garrisoned.add(p.id);garrison(p);}
  if(!player&&camMode==='ship'&&units.length&&!params.has('x')&&!params.has('free'))pickPlayer();
  for(const L of unitList)L.length=0;
- if(player&&VS){animateParts(t,dt);updateShells(dt);updateFoes(t,dt);updateForts(t,dt);careerStep(dt);updateWeapons(dt);updatePlaneAim();}
+ if(player&&VS){animateParts(t,dt);updateShells(dt);updateFoes(t,dt);updateForts(t,dt);careerStep(dt);updateWeapons(dt);updatePlaneAim();bfTick(dt);}
  for(const e of units){
   const d=Math.hypot(e.x-cam.x,e.z-cam.z);
   if(e.ai)continue;                                                       // combat AI draws itself (updateAI)
@@ -10955,8 +10955,14 @@ function findFront(){
  }
  return null;
 }
-function startBattle(){
- const b=findFront();if(!b)return;battles.push(b);warMapDirty=true;
+// v5.6 the nearest town to (x,z) within R metres (battles are fought for towns when there is one)
+function townWithin(x,z,R){let best=null,bd=R;const i0=Math.floor((x-R)/TOWN_CELL),i1=Math.floor((x+R)/TOWN_CELL),j0=Math.floor((z-R)/TOWN_CELL),j1=Math.floor((z+R)/TOWN_CELL);
+ for(let j=j0;j<=j1;j++)for(let i=i0;i<=i1;i++){const t=townAt(i,j);if(!t)continue;const d=Math.hypot(t.x-x,t.z-z);if(d<bd){bd=d;best=t;}}return best;}
+function startBattle(local){
+ let b=null;for(let k=0;k<(local?12:1);k++){const c=findFront();if(!c)continue;if(!local||sameBloc(c.att,PF)||sameBloc(c.def,PF)){b=c;break;}}   // a local battle has our side in it
+ if(!b)return;
+ if(local){const t=townWithin(b.x,b.z,3000);if(t){b.x=t.x;b.z=t.z;b.land=true;b.sea=false;b.town=t;b.name=(t.name||b.name);}b.local=true;b.dur+=180;}
+ battles.push(b);warMapDirty=true;
  const mine=sameBloc(b.def,PF),ours=sameBloc(b.att,PF);
  news(`${fTag(b.att)} attacking ${fTag(b.def)} at <b>${b.name}</b>`);
  if(b.def===PF)toast(FACTIONS[b.att].name+' forces are attacking '+b.name+'! Help hold it - the battle is on the war map (N).',6500);
@@ -11180,7 +11186,8 @@ function updateWorldWar(t,dt){
  if(frameNo%15===0&&feed.length)renderFeed();
  $('feed').style.display=(game.state==='playing'||game.state==='docking')?'block':'none';
  if(!live){if(game.state==='menu'||game.state==='garage'){battles.length=0;air.length=0;armour.length=0;infantry.length=0;cargo.length=0;}emitWar(t);return;}
- warT-=dt;if(warT<=0){const W_=ladWar();warT=(40+Math.random()*45)*(W_>=5?.7:W_<=1?1.5:1);if(!CW.on&&W_>0&&battles.length<(W_>=5?5:W_<=2?2:4))startBattle();}   // the ladder decides how hot the war runs
+ warT-=dt;if(warT<=0){const W_=ladWar();warT=(40+Math.random()*45)*(W_>=5?.7:W_<=1?1.5:1);if(!CW.on&&W_>0&&battles.length<(W_>=5?5:W_<=2?2:4))startBattle();
+  else if(CW.on&&W_>0&&battles.length<2){const near=BF.list&&BF.list[0];if(!near||near.d>12000){warT=Math.min(warT,30);startBattle(true);}}}   // v5.6 there is always a fight within reach   // the ladder decides how hot the war runs
  const px=camMode==='ship'?player.x:cam.x,pz=camMode==='ship'?player.z:cam.z;
  for(let i=battles.length-1;i>=0;i--){
   const b=battles[i];b.t+=dt;
@@ -13071,9 +13078,64 @@ ui.insertAdjacentHTML('beforeend',`<div id="deploy" class="screen"><div class="b
  <button class="btn" id="dp-back" style="margin-top:12px">BACK</button></div></div>`);
 SCREENS.push('deploy');
 let deployFrom='menu',pendingDeploy=null;
+// ---------- v5.6 the battle finder: the nearest fight your side is in, on screen, and H to drop into it ----------
+// The world war (CW) moves real army, fleet and air groups; a group in contact with an enemy is 'hot'. Hot groups within 4 km of each other are one
+// battle. The finder shows the nearest battle with both sides present as a marker in the world and a line on the HUD, and H deploys you into it.
+const BF={t:0,list:[],best:null};
+function fightsNear(){
+ // contacts are worked out here from the groups' own positions (the war host's 'hot' flags never reach the other players)
+ const me=player?[player.x,player.z]:[cam.x,cam.z],t=CW.simT||0,G=[],R={L:4000,S:7000,A:6000};
+ for(const g of CW.G){if(!g.p||!g.p.length||!(t>0))g.p=cwPos(g,t);else g.p=cwPos(g,t);if(Math.hypot(g.p[0]-me[0],g.p[1]-me[1])<60000)G.push(g);}
+ const hot=new Set();
+ for(let i=0;i<G.length;i++)for(let j=i+1;j<G.length;j++){const a=G[i],b=G[j];if(!atWar(a.f,b.f))continue;
+  const r=a.ty===b.ty?R[a.ty]:(a.ty==='S'||b.ty==='S')?0:3000;if(!r)continue;
+  if(Math.abs(a.p[0]-b.p[0])<r&&Math.abs(a.p[1]-b.p[1])<r&&Math.hypot(a.p[0]-b.p[0],a.p[1]-b.p[1])<r){hot.add(a);hot.add(b);}}
+ const out=[];
+ for(const g of hot){
+  let c=out.find(o=>Math.hypot(o.x-g.p[0],o.z-g.p[1])<5000);
+  if(!c){c={x:g.p[0],z:g.p[1],n:0,ty:{L:0,S:0,A:0},us:0,them:0,ux:0,uz:0};out.push(c);}
+  c.x=(c.x*c.n+g.p[0])/(c.n+1);c.z=(c.z*c.n+g.p[1])/(c.n+1);c.n++;c.ty[g.ty]=(c.ty[g.ty]||0)+1;
+  if(sameBloc(g.f,PF)){c.us++;c.ux+=g.p[0];c.uz+=g.p[1];}else if(atWar(g.f,PF))c.them++;}
+ for(const b of battles){const u=sameBloc(b.att,PF)?b.att:sameBloc(b.def,PF)?b.def:-1;if(u<0)continue;const c=capitalOf(PF),dx=c.x-b.x,dz=c.z-b.z,l=Math.hypot(dx,dz)||1;
+  out.push({x:b.x,z:b.z,n:1,ty:{L:b.land?1:0,S:b.land?0:1,A:0},us:1,them:1,ux:b.x+dx/l*1200,uz:b.z+dz/l*1200,name:b.name,town:!!b.town});}
+ return out.filter(c=>c.us&&c.them).map(c=>{c.d=Math.hypot(c.x-me[0],c.z-me[1]);c.kind=c.ty.S>=c.ty.L&&c.ty.S>=c.ty.A?'SEA':c.ty.L>=c.ty.A?'LAND':'AIR';return c;}).sort((a,b)=>a.d-b.d);
+}
+function fightDeploy(f){
+ let nx=f.ux/f.us-f.x,nz=f.uz/f.us-f.z,l=Math.hypot(nx,nz);                    // come in from our own side of the fighting
+ if(l<50){const c=capitalOf(PF);nx=c.x-f.x;nz=c.z-f.z;l=Math.hypot(nx,nz)||1;}
+ return {kind:'fight',x:f.x,z:f.z,nx:nx/l,nz:nz/l,name:f.kind[0]+f.kind.slice(1).toLowerCase()+' battle'};
+}
+function joinFight(){
+ if(!player||game.state!=='playing')return;
+ const f=BF.best;if(!f){toast('No battle your side is in right now - open the war map (N) to see the fronts',3500);return;}
+ if(f.d<2500){toast('You are already at the battle',2000);return;}
+ for(const t of hostiles())if(Math.hypot(t.x-player.x,t.z-player.z)<1500){toast('Not while you are under fire - break contact first',2500);return;}
+ deployAt(fightDeploy(f));
+}
+const bfEl=document.createElement('div'),bfMk=document.createElement('div');
+bfEl.className='panel';bfEl.style.cssText='position:absolute;left:50%;top:98px;transform:translateX(-50%);white-space:nowrap;display:none;padding:7px 12px;font-size:12px;letter-spacing:.1em;border-left:3px solid #ff5d4d;pointer-events:none';
+bfMk.style.cssText='position:absolute;left:0;top:0;display:none;transform:translate(-50%,-100%);text-align:center;font:600 11px/1.3 inherit;font-family:inherit;letter-spacing:.14em;color:#ffb3a8;text-shadow:0 1px 4px #000;pointer-events:none';
+document.getElementById('ui').append(bfEl,bfMk);
+function bfTick(dt){
+ const on=player&&game.state==='playing'&&camMode==='ship'&&CW.on;
+ if(!on){bfEl.style.display=bfMk.style.display='none';return;}
+ BF.t-=dt;if(BF.t<=0){BF.t=1;BF.list=fightsNear();const vt=VS&&VS.type;BF.best=BF.list.find(f=>vt==='plane'||(vt==='ship'?f.kind==='SEA'||f.ty.S>0||T.height(f.x,f.z)<0:f.kind!=='SEA'))||BF.list[0]||null;
+  const f=BF.best;
+  if(f){const dir=['N','NE','E','SE','S','SW','W','NW'][Math.round(bearingDeg(player.x,player.z,f.x,f.z)/45)%8];
+   bfEl.innerHTML=`<b style="color:#ff8a7d">&#9876; ${f.kind} BATTLE${f.name?' · '+esc(String(f.name)).toUpperCase():''}</b> &nbsp;${fmtD(f.d)} ${dir}`+(f.d>=2500?` &nbsp;<span class="kbd">H</span> JOIN`:` &nbsp;<span style="color:#ffd36b">YOU ARE IN IT</span>`);
+   bfEl.style.display='block';}
+  else bfEl.style.display='none';}
+ const f=BF.best;
+ if(f&&f.d>600){const y=Math.max(T.height(f.x,f.z),0)+60,sp=toScreen(f.x,y,f.z);
+  if(sp){bfMk.style.display='block';bfMk.style.left=sp[0]+'px';bfMk.style.top=sp[1]+'px';bfMk.innerHTML=`<div style="width:14px;height:14px;margin:0 auto 3px;border:2px solid #ff5d4d;transform:rotate(45deg);box-shadow:0 0 10px #ff5d4d"></div>${f.kind} BATTLE<br>${fmtD(f.d)}`;}
+  else bfMk.style.display='none';}
+ else bfMk.style.display='none';
+}
+addEventListener('keydown',e=>{if(e.code==='KeyH'&&!game.debug&&!e.repeat&&!(e.target&&/INPUT|TEXTAREA/.test(e.target.tagName)))joinFight();});
 function deployOptions(){
  const opts_=[],me=player?[player.x,player.z]:[cam.x,cam.z],home=safeHomePort();
  opts_.push({kind:'home',name:'Home base'+(home?' · '+portName(home.id):''),sub:'Safe behind the lines - the slow way to the war'});
+ for(const f of fightsNear().slice(0,3))opts_.push({...fightDeploy(f),hot:true,sub:'FIGHTING NOW · '+f.us+' of our groups against '+f.them+' · '+fmtD(f.d)+' away'});   // v5.6 live battles
  const o=MMO.off,st=typeof offState==='function'?offState():null;
  if(o&&(st==='live'||st==='soon'))opts_.push({kind:'off',name:'Offensive: '+o.name,sub:(st==='live'?'LIVE NOW':'starts in '+mmss((o.start-Date.now())/1000))+' · '+FACTIONS[o.att].tag+' attack',x:o.x,z:o.z,att:o.att,def:o.def,hot:true});
  const lines=frontLines().filter(F=>sameBloc(F.fa,PF)||sameBloc(F.fb,PF)).map(F=>({F,d:Math.hypot(F.mid[0]-me[0],F.mid[1]-me[1])})).sort((p,q)=>p.d-q.d);
@@ -13105,14 +13167,16 @@ function deployAt(D){
  if(D.kind==='front'){const F=D.F,us=sameBloc(F.fa,PF);nx=us?F.n[0]:-F.n[0];nz=us?F.n[1]:-F.n[1];
   let best=F.mid,bd=1e9;for(const p of F.pts){const d=Math.hypot(p[0]-player.x,p[1]-player.z);if(d<bd){bd=d;best=p;}}[tx,tz]=best;}
  else if(D.kind==='off'){tx=D.x;tz=D.z;const c=capitalOf(PF),dx=c.x-tx,dz=c.z-tz,l=Math.hypot(dx,dz)||1;nx=dx/l;nz=dz/l;}
+ else if(D.kind==='fight'){tx=D.x;tz=D.z;nx=D.nx;nz=D.nz;}
  else{tx=D.x;tz=D.z;const c=capitalOf(PF),dx=c.x-tx,dz=c.z-tz,l=Math.hypot(dx,dz)||1;nx=dx/l;nz=dz/l;}
  let pos=null;
  if(VS.type==='plane'){                                             // v2.8: planes go up from the airfield of your side nearest the front
   pos=[tx+nx*2500,tz+nz*2500];}
- if(VS.type==='ship'){for(const back of [900,1600,2500,3500,5000]){const q=seaSpot(tx+nx*back,tz+nz*back,900);if(q&&facRel(factionAt(q[0],q[1]))>=0){pos=q;break;}}
+ if(VS.type==='ship'){for(const back of D.kind==='fight'?[900,1600,2500,3500,5000,7000,9000]:[900,1600,2500,3500,5000]){const q=seaSpot(tx+nx*back,tz+nz*back,D.kind==='fight'?1600:900);if(q&&facRel(factionAt(q[0],q[1]))>=0){pos=q;break;}}
   if(!pos){toast('No water near that front for a ship - starting from your home base. Take a tank or a plane there.',5000);return;}
   }
- else if(VS.type==='tank'){const back=D.kind==='outpost'?40:TRENCH_OFF+420;for(const r of [80,200,400,800]){const q=landSpot(tx+nx*back,tz+nz*back,r);if(q){pos=q;break;}}
+ else if(VS.type==='tank'){const backs=D.kind==='fight'?[500,900,1400,2200,3200,600,1200]:[D.kind==='outpost'?40:TRENCH_OFF+420];   // v5.6 a battle: anywhere firm on our side of it
+  for(const back of backs){for(const r of [80,200,400,800]){const q=landSpot(tx+nx*back,tz+nz*back,r);if(q){pos=q;break;}}if(pos)break;}
   if(!pos){toast('No firm ground behind that front - starting from your home base',4000);return;}
   }
  const hd=headingOf(tx-pos[0],tz-pos[1]);

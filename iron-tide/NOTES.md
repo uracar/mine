@@ -24,7 +24,7 @@ remembers why it started. They just keep fighting.
 | | Item | Status |
 |---|---|---|
 | | Trees need better models; the world should feel like Pandora (Avatar) | 🔨 v5.2 glow at night, umbrella LOD · v5.3 realistic: natural greens, ragged leafy outlines with gaps, sun/shade leaf masses, forked boughs; ordinary trees get ragged leaf edges too |
-| | Battles are hard to find / not fun — there should be cities and military outposts to fight over | ❓ |
+| | Battles are hard to find / not fun — there should be cities and military outposts to fight over | 🔨 v5.6 **battle finder**: the nearest battle your side is in is always on screen (marker + distance + direction); **H** drops you into it in your vehicle; the deploy menu lists live battles first; when nothing is within 12 km a local battle starts, fought for a town |
 | | Front lines are real fronts: 50–100 km wide with a no-man's-land, "not some small little trench" | ⬜ |
 | | Bigger maps with more cities | ⬜ |
 | | Rivers and bridges | ⬜ |
@@ -60,7 +60,7 @@ remembers why it started. They just keep fighting.
 ## Tech tree 2 (TT2)
 - A second, more advanced tech tree that dwarfs TT1 and makes it look weak.
 - **TT2 has no tier 7**: tiers 1–6 only (per the owner, 2026-11-19).
-- TT2 tanks — proposal awaiting a yes: **hover tanks** (cross water, mud and snow; railguns, shields, drones, energy AA), tiers 1–6.
+- TT2 tanks — **hover tanks** (approved) (cross water, mud and snow; railguns, shields, drones, energy AA), tiers 1–6.
 - Balance: TT2 vehicles earn almost zero credits from kills on TT1, so progressing TT2 is nearly impossible if a player camps TT1 vehicles.
 - TT2 vehicles are much better: better radar, better AA systems, better materials, better weapons such as **(?) blasters**.
 - Name key: first letters = name, second letters = role: **I** interceptor, **A** attack, **T** tank, **C** command, **M** mixed, **F** fighter, **H** heli.
