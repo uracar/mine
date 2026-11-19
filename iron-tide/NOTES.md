@@ -64,6 +64,23 @@ remembers why it started. They just keep fighting.
 - Name key: first letters = name, second letters = role: **I** interceptor, **A** attack, **T** tank, **C** command, **M** mixed, **F** fighter, **H** heli.
 - TT2 aircraft tree (engine heli → …): ZAR, Eve-fly-1 (?), KAM-I4, XOL-44E, BRT-T1A, SPFY-M4F, CA-CST (?), HEL-H3A, SAL-H4I.
 
+### TT2 boats (page shared 2026-11-19)
+- Tree: **LMB-I1C** → **FSE-S2M**, **TTS-C2T** → **SOD-S3TM**, **BID-B3M**, **FDH-D3T** → **LBS-S7LM**, **ESO-S4T (?)**, **LBO-B4A**, **ACI-A4H (?)**, **DOD-D4TM**, **CAO-C4B (?)**.
+- Key after the dash: **I** interceptor, **D** destroyer, **B** battleship, **A** aircraft carrier, **S** sub, **C** cruiser; number = tier;
+  then **M** missile, **T** torpedoes, **H** hurricane (?), **LM** long-range missile.
+- **Torpedoes need to do more damage.** ⬜
+- Tanks don't have a TT2 identity yet ("I added fliers and subs but tanks have nothing new") — needs ideas. ⬜
+
+## Ship drawing (page shared 2026-11-19): top and side view of a big gun ship
+Legend: **A** 20 mm autocannon · **B** smokestack · **C** 5" gun · **D** 35 mm · **E** 15 cm · **F** 300 mm (main guns) · **G** superstructure · **H** 45 mm.
+Layout read from the top view (bow at the right): two 300 mm turrets forward and one aft-ish, 15 cm secondaries, 5" mounts, rows of 20/35/45 mm AA
+along both sides, a central superstructure block with two stacks, a tall stepped profile in the side view. Which ship this is: ❓
+
+## Other notes (2026-11-19)
+- **(?) "Hank/Hangar" should be connected to Netlify but not have everything unlocked.** ❓
+- **More weapons to choose from when customizing.** ⬜
+- **The AI should be treated as a real player, not as a separate thing.** ⬜
+
 ## Nations
 - Nation tech trees: US, Germany, USSR, UK, Japan — each with unique vehicles.
 
