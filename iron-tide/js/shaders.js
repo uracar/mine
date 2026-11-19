@@ -632,6 +632,7 @@ void aiPart(inout vec3 p,inout vec3 n,int g){
  if(m<.5){float a=-d*A.w,c=cos(a),s=sin(a);p=C.xyz+rotAxis(p-C.xyz,B.xyz,c,s);n=rotAxis(n,B.xyz,c,s);}
  else if(m<2.5)p.x+=(m<1.5?1.:-1.)*mod(d,A.w);
  else if(m<3.5)p+=B.xyz*A.w*d;
+ else if(m>4.5&&m<5.5){float a=d>8.?0.:d-A.w,c=cos(a),s=sin(a);p=C.xyz+rotAxis(p-C.xyz,B.xyz,c,s);n=rotAxis(n,B.xyz,c,s);}   // v6.3 an AI ship's turret: d is the target's bearing off the bow, A.w the turret's rest (9 = at rest)
  else p=C.xyz+(p-C.xyz)*step(.55,d);
 }
 void main(){

@@ -1511,6 +1511,7 @@ void aiPart(inout vec3 p,inout vec3 n,int g){
  if(m<.5){float a=-d*A.w,c=cos(a),s=sin(a);p=C.xyz+rotAxis(p-C.xyz,B.xyz,c,s);n=rotAxis(n,B.xyz,c,s);}
  else if(m<2.5)p.x+=(m<1.5?1.:-1.)*mod(d,A.w);
  else if(m<3.5)p+=B.xyz*A.w*d;
+ else if(m>4.5&&m<5.5){float a=d>8.?0.:d-A.w,c=cos(a),s=sin(a);p=C.xyz+rotAxis(p-C.xyz,B.xyz,c,s);n=rotAxis(n,B.xyz,c,s);}   // v6.3 an AI ship's turret: d is the target's bearing off the bow, A.w the turret's rest (9 = at rest)
  else p=C.xyz+(p-C.xyz)*step(.55,d);
 }
 void main(){
@@ -4163,7 +4164,7 @@ function renderOps(){
 window.__contracts={get contract(){return contract;},conOffers,conAccept,conClear,contractStep,contractDock,conComplete,get done(){return conDone;}};
 
 // ---------- the game around the world: home screen, HUD, pause and settings, fuel and hull, harbours and the port screen, saving ----------
-const GAME_TITLE='IRON TIDE',GAME_VERSION='v6.2';
+const GAME_TITLE='IRON TIDE',GAME_VERSION='v6.3';
 try{document.getElementById('load').textContent='LOADING WORLD… '+GAME_VERSION;}catch(e){}
 const SAVE_KEY='irontide.save.v1';
 const BURN_IDLE=.00004,BURN_AHEAD=.00048;                 // fuel (0..1) per second; flank speed burns 2.5 times the ahead rate
@@ -6399,7 +6400,7 @@ function drawUnitKinds(planes,vp,common,stats,kinds,noLod){
   if(!kept)continue;
   setU(progUnit,'uRoll',F.roll);setU(progUnit,'uSoft',k===UNIT.DUST||k===UNIT.SMOKE||k===UNIT.SPRAY?1:k===UNIT.BLAST?2:0);setU(progUnit,'uDet',F.det);setU(progUnit,'uMatte',PLANT_K.has(k)?1:0);setU(progUnit,'uVType',vTypeOfKind(k));setU(progUnit,'uDmg',k===UNIT.PLAYER&&game.state!=='garage'?Math.max(0,Math.min(1,1-game.hull)):0);
   if(k===UNIT.PLAYER)setPartUniforms();
-  {const ai=AI_U&&(k===UNIT.TANKAI?AI_U.H:k===UNIT.TANKTUR?AI_U.T:null);setU(progUnit,'uAI',ai?1:0);if(ai){gl.uniform4fv(progUnit.u.uPA,ai[0]);gl.uniform4fv(progUnit.u.uPB,ai[1]);gl.uniform4fv(progUnit.u.uPC,ai[2]);}}
+  {const ai=(AI_U&&(k===UNIT.TANKAI?AI_U.H:k===UNIT.TANKTUR?AI_U.T:null))||KIND_AIU.get(k)||null;setU(progUnit,'uAI',ai?1:0);if(ai){gl.uniform4fv(progUnit.u.uPA,ai[0]);gl.uniform4fv(progUnit.u.uPB,ai[1]);gl.uniform4fv(progUnit.u.uPC,ai[2]);}}
   gl.bindBuffer(gl.ARRAY_BUFFER,unitBuf[k]);gl.bufferData(gl.ARRAY_BUFFER,out.subarray(0,kept*UNIT_FLOATS),gl.STREAM_DRAW);
   gl.bindVertexArray(unitVAO[k]);gl.drawArraysInstanced(gl.TRIANGLES,0,unitMesh[k].nV,kept);
   stats.tris+=kept*unitMesh[k].nV/3;if(k<UNIT.FOAM)stats.units+=kept;
@@ -8116,11 +8117,11 @@ function shipBB(K){
 // differently: a sleek interceptor, low angular destroyers, two-island cruisers, towering battleships, and submarines with a sail and fins.
 function shipTT2(K){
  const {D,M,X,Y,bAt,hs,fun,latt,radar,dome,dirc,aa1,aa4,aaH,ciws,canis,tubesC,helipad,vlsF,e,lv,top,dark,fit,clear,place}=K;
- const CY=[.3,.95,1.],G1=shade(top,1.05),G2=shade(top,.9),G3=shade(top,.75),r=D.role,t=D.tier||1;
- const trim=(a,b,y,w)=>{for(const sg of [-1,1])box(M,X((a+b)/2),y-.1*e,sg*(w*.5-.12*e),(X(b)-X(a))*.8,.12*e,.12*e,CY,7);};   // thin glowing strips along the roof edges
+ const CY=[.46,.48,.5],G1=shade(top,1.05),G2=shade(top,.9),G3=shade(top,.75),r=D.role,t=D.tier||1;
+ const trim=(a,b,y,w)=>{for(const sg of [-1,1])box(M,X((a+b)/2),y-.1*e,sg*(w*.5-.12*e),(X(b)-X(a))*.8,.12*e,.12*e,CY,0);};   // thin glowing strips along the roof edges
  const blk=(a,b,y,hh,w,o={})=>{const yy=hs(a,b,y,hh,w,{cf:.55,ca:.45,k:.86,col:G1,...o});trim(a,b,yy,w*.86);return yy;};   // a faceted, leaning block
  const pyr=(x,y,base,hh,col=G2)=>{prism(M,octo(X(x),0,base,base,base*.32),y,y+hh,col,0,.32);return y+hh;};                   // an integrated pyramid mast
- const edgeGlow=()=>{for(const sg of [-1,1])for(let xp=-48;xp<46;xp+=4){const xa=X(xp),xb=X(Math.min(46,xp+4));cyl(M,[xa,Y(xa)-.35*e,sg*(bAt(xa)-.05*e)],[xb,Y(xb)-.35*e,sg*(bAt(xb)-.05*e)],.13*e,.13*e,4,CY,7,false);}};
+ const edgeGlow=()=>{for(const sg of [-1,1])for(let xp=-48;xp<46;xp+=4){const xa=X(xp),xb=X(Math.min(46,xp+4));cyl(M,[xa,Y(xa)-.35*e,sg*(bAt(xa)-.05*e)],[xb,Y(xb)-.35*e,sg*(bAt(xb)-.05*e)],.13*e,.13*e,4,CY,0,false);}};
  if(r==='S'){                                                     // ---- a submarine: a long low hull, a sail with diving planes, a cross tail
   const xs=X(12+(t>4?4:0)),ys=Y(xs),sw=Math.max(2.2,bAt(xs)*.36),sl=X(9+t)-X(0);
   prism(M,[[xs-sl*.45,-sw/2],[xs+sl*.5,-sw*.35],[xs+sl*.55,0],[xs+sl*.5,sw*.35],[xs-sl*.45,sw/2],[xs-sl*.55,0]],ys,ys+6.5*e+t*.5,G2,0,.92);   // the sail
@@ -8170,13 +8171,13 @@ function shipTT2(K){
 // ================= v5.8 TT2 BID-B3M: the missile battleship from Jackson's drawing =================
 function shipTT2B(K){
  const {M,X,Y,bAt,hs,fun,latt,radar,dirc,dome,aa1,aa4,aaH,dp,ciws,canis,e,lv,top,dark,fit,clear}=K;
- const CY=[.3,.95,1.],G1=shade(top,.92),G2=shade(top,.8),G3=shade(top,.68);                 // TT2 cyan, three greys for the stepped decks
+ const CY=[.46,.48,.5],G1=shade(top,.92),G2=shade(top,.8),G3=shade(top,.68);                 // TT2 cyan, three greys for the stepped decks
  const xc=X(8),w=bAt(xc)*1.45,y0=Y(xc);
  // G: the citadel - three stepped decks, the bridge, then a tower of four narrowing levels with phased arrays
  const y1=hs(-6,17.5,y0,lv*1.3,w,{col:G1,cf:.4,ca:.3});
  const y2=hs(-2.5,15.5,y1,lv*1.25,w*.78,{col:G2,cf:.45,ca:.35});
  const y3=hs(1.5,14.5,y2,lv*1.2,w*.6,{col:G1,win:.55,cf:.5,ca:.4});
- for(const [a,b,y,ww] of [[-6,17.5,y1,w],[-2.5,15.5,y2,w*.78],[1.5,14.5,y3,w*.6]])box(M,X((a+b)/2),y-.06*e,0,(X(b)-X(a))*.9,.14*e,ww*.9,CY,7);   // glowing trim on every deck
+ for(const [a,b,y,ww] of [[-6,17.5,y1,w],[-2.5,15.5,y2,w*.78],[1.5,14.5,y3,w*.6]])box(M,X((a+b)/2),y-.06*e,0,(X(b)-X(a))*.9,.14*e,ww*.9,CY,0);   // glowing trim on every deck
  let yt=y3;
  for(let k=0;k<4;k++){const yb=yt;yt=hs(4.5+k*.45,12.5-k*.5,yt,lv*1.1,w*.44*(1-k*.09),{col:k%2?G3:G2,win:k===3?.75:.3,cf:.5,ca:.45});
   if(k===1)_spyBlock(K,4.95,12,yb,lv*1.1,w*.4,[1,-1]);}
@@ -8197,7 +8198,7 @@ function shipTT2B(K){
  // A: 20 mm singles down both deck edges
  _edgeAA(K,-49,47,2.6,1.5);
  // cyan glow lines down both deck edges, TT2 style
- for(const sg of [-1,1])for(let xp=-48;xp<46;xp+=4){const xa2=X(xp),xb=X(Math.min(46,xp+4));cyl(M,[xa2,Y(xa2)-.35*e,sg*(bAt(xa2)-.05*e)],[xb,Y(xb)-.35*e,sg*(bAt(xb)-.05*e)],.15*e,.15*e,4,CY,7,false);}
+ for(const sg of [-1,1])for(let xp=-48;xp<46;xp+=4){const xa2=X(xp),xb=X(Math.min(46,xp+4));cyl(M,[xa2,Y(xa2)-.35*e,sg*(bAt(xa2)-.05*e)],[xb,Y(xb)-.35*e,sg*(bAt(xb)-.05*e)],.15*e,.15*e,4,CY,0,false);}
  fit({rail:[-49,48]});
 }
 // ================= carriers =================
@@ -10263,16 +10264,16 @@ const STATS={ship:sizedStats,tank:sizedStats,plane:sizedStats},MESHES={ship:spec
 // a hover tank's skirt, an aircraft's engines and wingtips. The colour channel's part 7 makes a surface self-lit (unit shader).
 function tt2Dress(M,spec){
  if(!spec||!spec.tt2||!M||!M.P||!M.C)return M;
- const P=M.P,C=M.C,n=P.length/3,CY=[.3,.95,1.];let x0=1e9,x1=-1e9,y0=1e9,y1=-1e9,zm=0;
+ const P=M.P,C=M.C,n=P.length/3,CY=[.44,.46,.48];   // v6.3 realistic: a light grey line, not a glowlet x0=1e9,x1=-1e9,y0=1e9,y1=-1e9,zm=0;
  for(let i=0;i<n;i++){const x=P[i*3],y=P[i*3+1],z=Math.abs(P[i*3+2]);if(x<x0)x0=x;if(x>x1)x1=x;if(y<y0)y0=y;if(y>y1)y1=y;if(z>zm)zm=z;}
- const glow=i=>{C[i*4]=CY[0];C[i*4+1]=CY[1];C[i*4+2]=CY[2];C[i*4+3]=7;};
+ const glow=i=>{C[i*4]=CY[0];C[i*4+1]=CY[1];C[i*4+2]=CY[2];C[i*4+3]=0;};
  if(spec.type==='ship'){const B=2,nb=Math.ceil((x1-x0)/B)+1,zb=new Float32Array(nb);
   for(let i=0;i<n;i++){const y=P[i*3+1];if(y<.4)continue;const k=Math.floor((P[i*3]-x0)/B),z=Math.abs(P[i*3+2]);if(z>zb[k])zb[k]=z;}
   const N=M.N,side=i=>!N||Math.abs(N[i*3+1])<.45,yb=new Float32Array(nb).fill(-1e9);
   for(let i=0;i<n;i++){const y=P[i*3+1];if(y<.4||!side(i))continue;const k=Math.floor((P[i*3]-x0)/B);if(Math.abs(P[i*3+2])>=zb[k]-.12&&y>yb[k])yb[k]=y;}
   for(let i=0;i<n;i++){const y=P[i*3+1];if(y<.4||!side(i))continue;const k=Math.floor((P[i*3]-x0)/B);if(Math.abs(P[i*3+2])>=zb[k]-.12&&zb[k]>zm*.5&&y>yb[k]-.9)glow(i);}}   // a thin band along the top of the hull sides only
- else if(spec.type==='tank'){const h=Math.max(.25,(y1-y0)*.1);for(let i=0;i<n;i++)if(P[i*3+1]<y0+h)glow(i);}
- else{const L=x1-x0;for(let i=0;i<n;i++){const k=i*4;if(C[k+3]<6.5){const l=C[k]*.3+C[k+1]*.59+C[k+2]*.11;C[k]=.13+l*.55;C[k+1]=.14+l*.6;C[k+2]=.17+l*.7;}const x=P[i*3],z=Math.abs(P[i*3+2]);if(x<x0+L*.05||z>zm*.94)glow(i);}}   // TT2 graphite, glowing engines and wingtips
+ else if(spec.type==='tank'){}
+ else{const L=x1-x0;for(let i=0;i<n;i++){const k=i*4;if(C[k+3]<6.5){const l=C[k]*.3+C[k+1]*.59+C[k+2]*.11;C[k]=.13+l*.55;C[k+1]=.14+l*.6;C[k+2]=.17+l*.7;}}}   // TT2 graphite (v6.3: no glowing engines - realistic)
  return M;
 }
 // v5.9 TT2 hover tanks: the base tank's upper hull, turret and gun stay (they aim and fire); everything below the hull top - tracks, road
@@ -10289,18 +10290,18 @@ function hoverTank(M,spec){
  const keep=[];for(let t=0;t<n;t+=3){const g=M.G[t];const low=Math.max(P[t*3+1],P[t*3+4],P[t*3+7])<cut;if(!moving.has(g)&&!low)keep.push(t);}
  const nP=[],nN=[],nC=[],nG=[];for(const t of keep)for(let k=0;k<3;k++){const v=t+k;nP.push(P[v*3],P[v*3+1],P[v*3+2]);nN.push(M.N[v*3],M.N[v*3+1],M.N[v*3+2]);nC.push(M.C[v*4],M.C[v*4+1],M.C[v*4+2],M.C[v*4+3]);nG.push(M.G[v]);}
  M.P=nP;M.N=nN;M.C=nC;M.G=nG;M.grp=0;
- const L=x1-x0,W=zm*2,xm=(x0+x1)/2,H=cut-y0,top=[.22,.24,.27],dk=[.13,.14,.16],CY=[.3,.95,1.],role=(String(spec.tt2).split('-')[1]||'').replace(/^[A-Z]\d/,'')+String(spec.tt2).split('-')[0];
+ const L=x1-x0,W=zm*2,xm=(x0+x1)/2,H=cut-y0,top=[.22,.24,.27],dk=[.13,.14,.16],CY=[.07,.07,.08],role=(String(spec.tt2).split('-')[1]||'').replace(/^[A-Z]\d/,'')+String(spec.tt2).split('-')[0];
  const yb=y0+H*.35;                                                          // the hover body floats: its belly is a third of the way up
  box(M,xm-L*.04,yb,0,L*.86,cut-yb+.15,W*.96,top);                             // the armoured body, up to the hull it carries
  wedge(M,x1-L*.09,yb,0,L*.16,cut-yb+.15,W*.9,-L*.1,top);                       // a sloped glacis at the nose
- box(M,xm,yb-.12,0,L*.9,.14,W*.9,CY,7);                                        // the glowing skirt
- for(const sx of [-1,1])for(const sz of [-1,1]){const px=xm+sx*L*.36,pz=sz*W*.5;cylY(M,px,yb-.25,pz,W*.13,cut-yb,12,dk);cylY(M,px,yb-.32,pz,W*.11,.1,12,CY,7);}   // thruster pods
+ box(M,xm,yb-.12,0,L*.9,.14,W*.9,CY,0);                                        // the glowing skirt
+ for(const sx of [-1,1])for(const sz of [-1,1]){const px=xm+sx*L*.36,pz=sz*W*.5;cylY(M,px,yb-.25,pz,W*.13,cut-yb,12,dk);cylY(M,px,yb-.32,pz,W*.11,.1,12,CY,0);}   // thruster pods
  for(const sz of [-1,1])box(M,xm-L*.05,cut-H*.15,sz*W*.49,L*.7,H*.3,.12,dk);   // armour fins along the sides
  const deckY=cut+.1,rx=x0+L*.2;
  if(/M/.test(role))for(const sz of [-1,1]){box(M,rx,deckY,sz*W*.36,L*.22,H*.45,W*.16,dk);for(let i=0;i<3;i++)for(let j=0;j<2;j++)box(M,rx-L*.06+i*L*.06,deckY+H*.45,sz*W*.36+(j-.5)*W*.07,L*.04,.03,W*.05,[.05,.05,.06]);}   // missile pods
- if(/S/.test(role)){cylY(M,rx,deckY,0,W*.12,H*.3,14,dk);cylY(M,rx,deckY+H*.3,0,W*.14,H*.12,14,CY,7,W*.06);}   // shield emitter
+ if(/S/.test(role)){cylY(M,rx,deckY,0,W*.12,H*.3,14,dk);cylY(M,rx,deckY+H*.3,0,W*.14,H*.12,14,CY,0,W*.06);}   // shield emitter
  if(/D/.test(role)){box(M,rx,deckY,0,L*.26,.12,W*.6,[.16,.17,.19]);for(const sz of [-1,1]){const dx=rx,dz=sz*W*.15;box(M,dx,deckY+.12,dz,L*.06,.12,L*.06,dk);for(const a of [[1,1],[1,-1],[-1,1],[-1,-1]])cylY(M,dx+a[0]*L*.04,deckY+.2,dz+a[1]*L*.04,L*.025,.03,8,[.1,.1,.11]);}}   // drone deck with two drones
- if(/H/.test(role))for(const sz of [-1,1]){box(M,rx+L*.05,deckY,sz*W*.42,L*.1,H*.35,W*.1,dk);cyl(M,[rx+L*.05,deckY+H*.3,sz*W*.42],[rx+L*.3,deckY+H*.75,sz*W*.42],W*.03,W*.025,8,dk);cyl(M,[rx+L*.28,deckY+H*.72,sz*W*.42],[rx+L*.32,deckY+H*.8,sz*W*.42],W*.04,W*.04,8,CY,7);}   // energy AA cannons
+ if(/H/.test(role))for(const sz of [-1,1]){box(M,rx+L*.05,deckY,sz*W*.42,L*.1,H*.35,W*.1,dk);cyl(M,[rx+L*.05,deckY+H*.3,sz*W*.42],[rx+L*.3,deckY+H*.75,sz*W*.42],W*.03,W*.025,8,dk);cyl(M,[rx+L*.28,deckY+H*.72,sz*W*.42],[rx+L*.32,deckY+H*.8,sz*W*.42],W*.04,W*.04,8,CY,0);}   // energy AA cannons
  return M;
 }
 for(const t of ['ship','tank','plane']){const f=MESHES[t];MESHES[t]=spec=>tt2Dress(t==='tank'?hoverTank(f(spec),spec):f(spec),spec);}
@@ -10338,16 +10339,21 @@ const FOE_KIND=[
 // Every AI warship is crewed like a player's: it sails a real Service Tree ship (TT2 when you are in TT2), within a tier of yours, drawn
 // with that ship's own model and carrying that ship's health, size and speed. One instanced kind is made per ship design the first time it
 // appears (moving parts frozen, muzzle flashes left out).
-const FOE_SHIP_KIND=new Map();
+const FOE_SHIP_KIND=new Map(),KIND_AIU=new Map();
 function foeShipKind(id){
  let k=FOE_SHIP_KIND.get(id);if(k!==undefined)return k;
  try{
   const spec=nodeSpec(NODE.get(id)),M=MESHES.ship(spec),F=mesh();
   const drop=new Set(M.parts.map((d,i)=>d.kind==='flash'||d.kind==='ab'?i+1:0).filter(Boolean));
-  for(let v=0;v<M.G.length;v+=3){if(drop.has(M.G[v]))continue;for(let q=v;q<v+3;q++){F.P.push(M.P[q*3],M.P[q*3+1],M.P[q*3+2]);F.N.push(M.N[q*3],M.N[q*3+1],M.N[q*3+2]);F.C.push(M.C[q*4],M.C[q*4+1],M.C[q*4+2],M.C[q*4+3]);F.G.push(0);}}
+  // v6.3 turrets turn: every turret becomes a group of its own and its barrels ride in it, locked to the turret
+  const gmap=new Map(),tdefs=[];M.parts.forEach((d,i)=>{if(d.kind==='turret'&&tdefs.length<PART_SLOTS-1){tdefs.push(d);gmap.set(i+1,tdefs.length);}});
+  const root=g=>{let id=g,guard=0;while(id&&!gmap.has(id)&&guard++<6){const d=M.parts[id-1];id=d&&d.parent?d.parent:0;}return gmap.get(id)||0;};
+  for(let v=0;v<M.G.length;v+=3){if(drop.has(M.G[v]))continue;const g=root(M.G[v]);for(let q=v;q<v+3;q++){F.P.push(M.P[q*3],M.P[q*3+1],M.P[q*3+2]);F.N.push(M.N[q*3],M.N[q*3+1],M.N[q*3+2]);F.C.push(M.C[q*4],M.C[q*4+1],M.C[q*4+2],M.C[q*4+3]);F.G.push(g);}}
   const k0=unitList.length;unitList.push([]);k=addUnitKind(F);
   if(k!==k0){FOE_SHIP_KIND.set(id,null);return null;}
-  UNIT_DRAW_R[k]=UNIT_DRAW_R[UNIT.ENEMY];unitFlags[k]={rad:Math.max(130,vehicleStats(spec).length*.6),roll:1,det:1,lod:-1,lodD:0};
+  {const A=new Float32Array(PART_SLOTS*4),B=new Float32Array(PART_SLOTS*4),C=new Float32Array(PART_SLOTS*4);
+   tdefs.forEach((d,i)=>{const o=(i+1)*4;A[o+3]=d.rest||0;B.set([0,1,0,1],o);C.set([d.pivot[0],d.pivot[1],d.pivot[2],5],o);});KIND_AIU.set(k,[A,B,C]);}
+  UNIT_DRAW_R[k]=UNIT_DRAW_R[UNIT.ENEMY];unitFlags[k]={rad:Math.max(130,vehicleStats(spec).length*.6),roll:0,det:1,lod:-1,lodD:0};   // the roll slot carries the turret bearing
   extraDrawKinds.push(k);if(solidKinds)solidKinds.splice(solidKinds.length-lodKinds.length,0,k);
  }catch(e){k=null;}
  FOE_SHIP_KIND.set(id,k);return k;
@@ -10537,7 +10543,9 @@ function emitFoes(){
  for(const f of foes){
   if(Math.hypot(f.x-cam.x,f.z-cam.z)>UNIT_DRAW_R[UNIT.ENEMY])continue;
   const rp=ridePose(f.x,f.z,f.hd,foeNow,f.L),sk=f.sinkT;if(!f.dead)foeSpray(f);
-  const fl=f.hp0?Math.pow(clamp(1-f.hp/f.hp0,0,1),1.5):0;emit(f.kind??UNIT.ENEMY,f.x,f.y+rp.y-sk*sk*.3-fl*f.L*.012,f.z,f.hd,rp.pitch+Math.min(.55,sk*.05)-fl*.02,rp.roll+Math.min(.95,sk*.09)+fl*.07*(f.side||1),f.fid+1,f.kind!=null?1:f.scale);
+  const fl=f.hp0?Math.pow(clamp(1-f.hp/f.hp0,0,1),1.5):0;if(f.kind!=null){let want=9;if(!f.dead&&player&&foeHostile(f)&&Math.hypot(player.x-f.x,player.z-f.z)<9000)want=wrapPi(headingOf(player.x-f.x,player.z-f.z)-f.hd);
+   if(want>8)f.trel=9;else{if(!(f.trel<8))f.trel=0;f.trel+=clamp(wrapPi(want-f.trel),-.02,.02);}}
+  emit(f.kind??UNIT.ENEMY,f.x,f.y+rp.y-sk*sk*.3-fl*f.L*.012,f.z,f.hd,rp.pitch+Math.min(.55,sk*.05)-fl*.02,f.kind!=null?f.trel:rp.roll+Math.min(.95,sk*.09)+fl*.07*(f.side||1),f.fid+1,f.kind!=null?1:f.scale);
  }
 }
 window.__foe=(dx,dz)=>{addFoe(player.x+dx,player.z+dz,headingOf(-dx,-dz));return foes[foes.length-1];};
