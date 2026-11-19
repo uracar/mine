@@ -2887,6 +2887,8 @@ ui.insertAdjacentHTML('beforeend',`
 .su-tabs button.on{color:#17110a;background:linear-gradient(90deg,#f2b84b,#d9952c)}
 #signup #su-user{text-transform:none;font-size:18px;letter-spacing:.06em}#signup #su-pass{font-size:18px;letter-spacing:.06em;text-transform:none}
 #signup .btn+.btn{margin-top:8px}
+#signup #su-pass1{text-transform:none;font-size:18px;letter-spacing:.06em;margin-top:0}
+.su-side{margin:0;text-align:left;border-width:1px;border-style:solid;border-left-width:4px}.su-side.sel{box-shadow:inset 0 0 0 1px currentColor}
 /* main menu: account chip, pilot strip */
 #m-acctbar{position:absolute;right:4vw;top:22px;display:none;align-items:center;gap:10px;pointer-events:auto}
 #m-acctbar button{display:flex;align-items:center;gap:10px;padding:9px 16px;font:600 12px/1 inherit;font-family:inherit;letter-spacing:.18em;color:var(--ink);background:rgba(10,15,20,.78);border:1px solid var(--line);cursor:pointer;backdrop-filter:blur(6px);clip-path:polygon(0 0,calc(100% - 8px) 0,100% 8px,100% 100%,8px 100%,0 calc(100% - 8px))}
@@ -2912,10 +2914,12 @@ ui.insertAdjacentHTML('beforeend',`
  <div id="su-newpane">
  <h2 class="t" id="su-h">ENLIST</h2><div class="sub" id="su-s">Create your pilot profile</div>
  <p style="line-height:1.55;margin:12px 0 0">Choose a call sign and the power you fight for. Other pilots on your side are your allies; the other bloc are your enemies.</p>
- <input id="su-name" maxlength="16" placeholder="CALL SIGN" autocomplete="off" spellcheck="false">
+ <input id="su-name" maxlength="16" placeholder="CALL SIGN" autocomplete="username" spellcheck="false">
+ <input id="su-pass1" type="password" maxlength="128" placeholder="PASSWORD (6+ CHARACTERS)" autocomplete="new-password" style="display:none">
  <div id="su-fac" style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin:4px 0 10px"></div>
  <div id="su-status" style="font-size:12px;color:var(--dim);min-height:34px;line-height:1.45"></div>
  <button class="btn pri" id="su-go">ENLIST</button>
+ <button class="btn sm" id="su-guest" style="display:none;width:100%;text-align:center">PLAY AS A GUEST (NO PASSWORD - THIS COMPUTER ONLY)</button>
  <button class="btn" id="su-acct" style="display:none">ALREADY HAVE AN ACCOUNT? LOG IN</button>
  </div>
  <div id="su-loginpane" style="display:none">
@@ -3001,11 +3005,11 @@ let suFid=-1;
 function renderSignupFactions(){
  const el=$('su-fac');if(!el)return;const c=pilotCounts(),bl=[c[0]+c[1],c[2]+c[3]],small=bl[0]<=bl[1]?0:1;
  if(suFid<0)suFid=small===0?(c[0]<=c[1]?0:1):(c[2]<=c[3]?2:3);
- el.innerHTML=FACTIONS.map(F=>`<button class="btn sm ${F.id===suFid?'pri':''}" data-fac="${F.id}" style="margin:0;border-color:${F.css};text-align:left"><b style="color:${F.css}">${F.name.toUpperCase()}</b><br><small style="opacity:.75">${c[F.id]} pilot${c[F.id]===1?'':'s'}${BLOC[F.id]===small&&bl[0]!==bl[1]?' &middot; UNDERDOG +25% XP':''}</small></button>`).join('');
+ el.innerHTML=FACTIONS.map(F=>`<button class="btn sm su-side ${F.id===suFid?'sel':''}" data-fac="${F.id}" style="border-color:${F.css};color:${F.css};background:${F.id===suFid?F.css+'33':'rgba(255,255,255,.03)'}"><b style="color:${F.id===suFid?'#fff':F.css}">${F.id===suFid?'&#10003; ':''}${F.name.toUpperCase()}</b><br><small style="opacity:.75">${c[F.id]} pilot${c[F.id]===1?'':'s'}${BLOC[F.id]===small&&bl[0]!==bl[1]?' &middot; UNDERDOG +25% XP':''}</small></button>`).join('');
  for(const b of el.querySelectorAll('[data-fac]'))b.onclick=()=>{suFid=+b.dataset.fac;renderSignupFactions();};
 }
 function showSignup(){
- showScreen('signup');$('su-status').textContent=cloud.status;renderSignupFactions();
+ showScreen('signup');$('su-status').textContent=/Logged in as guest/.test(cloud.status||'')?'':cloud.status;renderSignupFactions();
  setTimeout(()=>{try{$('su-name').focus();}catch(e){}},50);
 }
 $('su-name').addEventListener('keydown',e=>{e.stopPropagation();if(e.code==='Enter')$('su-go').click();});
@@ -3013,11 +3017,22 @@ function showSideChoice(){
  showSignup();$('su-h').textContent='CHOOSE YOUR SIDE';$('su-s').textContent='Pilot '+profile.callsign.toUpperCase()+' - which power do you fight for?';
  const n=$('su-name');n.value=profile.callsign;n.style.display='none';$('su-go').textContent='JOIN THIS SIDE';
 }
+let suGuest=false;const SU_ONLINE=!(window.claude&&window.claude.use);
 $('su-go').onclick=()=>{
  if(profile&&profile.fid===undefined){const f=suFid>=0?suFid:0;profile.fid=f;profile.season=MMO.season.n;profileSave();if(f!==PF)setFaction(f,false);
   $('su-name').style.display='';$('su-go').textContent='ENLIST';cloudPush(true);renderBrief();showScreen('brief');renderPilot();return;}
  const name=$('su-name').value.replace(/[^A-Za-z0-9 _-]/g,'').trim().slice(0,16);
  if(name.length<2){$('su-status').textContent='Call signs need at least two letters or digits.';return;}
+ if(SU_ONLINE&&!cloud.server&&!suGuest){                          // v5.7 the call sign is also the account name: one form makes the pilot and the account
+  const pw=$('su-pass1').value,st=$('su-status');
+  if(!/^[A-Za-z0-9_-]{3,16}$/.test(name)){st.textContent='Call signs are 3-16 letters, numbers, _ or - (no spaces).';return;}
+  if(pw.length<6){st.textContent='Pick a password of at least 6 characters - you will use it to log in on any computer.';return;}
+  st.textContent='Creating your pilot…';$('su-go').disabled=true;
+  api('/register',{method:'POST',body:{username:name,password:pw}}).then(d=>{
+   ACCT.token=d.token;ACCT.user=d.username;store.set('irontide.token',d.token);store.set('irontide.user',d.username);$('su-pass1').value='';
+   acctSignedIn(d.username);$('su-go').disabled=false;suGuest=true;$('su-go').click();suGuest=false;
+  }).catch(e=>{$('su-go').disabled=false;st.textContent=e.status===409?'That call sign is taken. Pick another - or if it is yours, use I HAVE AN ACCOUNT.':(e.message||'Could not reach the game server.')+' You can still play as a guest.';});
+  return;}
  const fid=suFid>=0?suFid:0;
  profile={callsign:name,created:Date.now(),tutorialDone:false,wins:0,fid,season:MMO.season.n};profileSave();
  if(fid!==PF)setFaction(fid,false);
@@ -3173,8 +3188,7 @@ async function acctGuest(){
 async function serverInit(){
  acctChip();
  if(!ACCT.token){                                              // v4.9 nobody logged in: join the shared war at once as a guest
-  try{const d=await acctGuest();ACCT.token=d.token;ACCT.user=d.username;store.set('irontide.token',d.token);store.set('irontide.user',d.username);}
-  catch(e){acctRoster();cloud.status='Could not reach the game server - playing offline. Your pilot is saved in this browser.';renderPilot();return;}
+  acctRoster();cloud.status='';renderPilot();return;                // v5.7 no silent guest accounts: the sign-up screen makes a real one (or a guest, on request)
  }
  try{
   const d=await api('/me');
@@ -3213,7 +3227,12 @@ async function acctSubmit(kind,f){
 }
 {const online=!(window.claude&&window.claude.use);
  const tab=w=>{$('su-t-new').classList.toggle('on',w==='new');$('su-t-login').classList.toggle('on',w==='login');$('su-newpane').style.display=w==='new'?'':'none';$('su-loginpane').style.display=w==='login'?'':'none';if(w==='login')setTimeout(()=>$('su-user').focus(),30);};
- if(online)$('su-tabs').style.display='';
+ if(online){$('su-tabs').style.display='';$('su-pass1').style.display='';$('su-guest').style.display='';$('su-go').textContent='CREATE PILOT';
+  for(const id of ['su-pass1'])$(id).addEventListener('keydown',e=>{e.stopPropagation();if(e.code==='Enter')$('su-go').click();});
+  const was=store.get('irontide.user')||'';if(was&&!/^guest\d+$/.test(was)&&!profile){tab('login');$('su-user').value=was;}}
+ $('su-guest').onclick=async()=>{const st=$('su-status');st.textContent='Starting as a guest…';
+  try{const d=await acctGuest();ACCT.token=d.token;ACCT.user=d.username;store.set('irontide.token',d.token);store.set('irontide.user',d.username);acctSignedIn(d.username);}catch(e){}
+  suGuest=true;$('su-go').click();suGuest=false;};
  $('su-t-new').onclick=()=>tab('new');$('su-t-login').onclick=()=>tab('login');
  $('su-login').onclick=async()=>{await acctSubmit('login',{u:'su-user',p:'su-pass',s:'su-lstatus'});if(cloud.server&&!profile)tab('new');};
  for(const id of ['su-user','su-pass'])$(id).addEventListener('keydown',e=>{e.stopPropagation();if(e.code==='Enter')$('su-login').click();});}
