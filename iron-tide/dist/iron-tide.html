@@ -4302,6 +4302,7 @@ ui.innerHTML=`
  <div class="lab">BORDER BANNERS</div><div class="seg" id="s-bn"><button data-v="1">ON</button><button data-v="0">OFF</button></div>
  <div class="lab" id="s-lad-l" style="display:none">PROGRESSION (owner account only: sandbox sets the enemy to High Command difficulty)</div><div class="seg" id="s-lad" style="display:none"><button data-v="0">THE LADDER</button><button data-v="1">SANDBOX</button></div>
  <div class="lab">WAR MAP (territories you have captured)</div><div class="seg"><button id="s-warreset">RESET THE WAR MAP</button></div>
+ <div class="lab">PROGRESS (lock the Service Tree again and start from tier 1 - your pilot, rank and kills are kept)</div><div class="seg"><button id="s-fresh">START FRESH</button></div>
  <div class="lab">ENEMY MARKERS (brackets, health and distance over every hostile)</div><div class="seg" id="s-mk"><button data-v="off">OFF</button><button data-v="near">WITHIN 2.5 KM</button><button data-v="far">WITHIN 6 KM</button></div>
  <div class="lab">ARROWS TO ENEMIES OFF SCREEN</div><div class="seg" id="s-ar"><button data-v="1">ON</button><button data-v="0">OFF</button></div>
  <div class="lab">CAMERA SHAKE (your guns, hits, nearby explosions)</div><div class="seg" id="s-sk"><button data-v="0">OFF</button><button data-v=".55">SUBTLE</button><button data-v="1">NORMAL</button><button data-v="1.7">STRONG</button></div>
@@ -4832,6 +4833,12 @@ function bindSeg(id,pick,isOn){for(const b of $(id).children)b.onclick=()=>{pick
  bindSeg('s-un',v=>{opts.units=v;},v=>v===opts.units);
  bindSeg('s-du',v=>{opts.dist=v;},v=>v===(opts.dist||'metric'));
  applyHud();
+ $('s-fresh').onclick=()=>{if(!confirm('Start fresh? Every vehicle above tier 1, your credits, refits and the ladder steps go back to the start. Your pilot, rank and kills are kept.'))return;
+  SALV={bank:0,total:0,cargo:0,own:{},refit:{land:{},sea:{},air:{}},dv:'----',wk:salvWeek(),sw:0,pick:{},seen:0,tv:38};store.set(SALV_KEY,JSON.stringify(SALV));SALV=null;salvLoad();salvSave();
+  ladder={step:0,prog:{},sandbox:false,seen:-1,t:Date.now()};ladSave();ladHudDirty=true;
+  garage.specs={ship:null,tank:null,plane:null};
+  try{cloudPush(true);}catch(e){}
+  toast('Fresh start: tier 1 vehicles only. Earn salvage and unlock the tree as you fight.',5000);};
  $('s-warreset').onclick=()=>{if(confirm('Hand every captured territory back to its original owner?')){resetWar();toast('The war map is back to how it began.');}};
 })();
 addEventListener('keydown',e=>{
