@@ -3347,7 +3347,7 @@ function tutMaybeStart(){
 window.__pilot={get profile(){return profile;},cloud,theatre,tut,tutStart,tutEnd,showSignup,cloudPush,TUT,get shots(){return shotsFired;}};
 
 window.__game={game,openGarage,garage,garageType,renderGarage,previewVehicle,deployFromGarage,setWater(m){waterMode=m;},tp(x,z,hd){player.x=x;player.z=z;if(hd!==undefined)player.hd=hd;player.v=0;},refreshPort,dockCandidate,startDock,callTug,newVoyage,startService,setPortTab,castOff,portName,saveGame,loadGame,hasSave,get state(){return game.state;}};
-window.__dev={setVehicle:s=>setVehicle(s),nodeSpec:n=>nodeSpec(typeof n==='string'?NODE.get(n):n),get VS(){return VS;},parts:()=>pParts.map(d=>d.kind),giants:()=>{const o=[];for(const R of giantRegions.values())for(const g of R.giants)o.push([g.x,g.y,g.z,g.height,g.crown]);return o;}};   // test hooks (screenshots, checks)
+window.__dev={setVehicle:s=>setVehicle(s),nodeSpec:n=>nodeSpec(typeof n==='string'?NODE.get(n):n),get VS(){return VS;},aiu:k=>{const u=KIND_AIU.get(k);if(!u)return null;let n=0;for(let i=4;i<u[2].length;i+=4)if(u[2][i+3]===5)n++;return n;},parts:()=>pParts.map(d=>d.kind),giants:()=>{const o=[];for(const R of giantRegions.values())for(const g of R.giants)o.push([g.x,g.y,g.z,g.height,g.crown]);return o;}};   // test hooks (screenshots, checks)
 
 // ---------- roads: a ribbon laid on the ground along every route near the camera ----------
 // The terrain also carries a faint asphalt tint along the roads, so far away (and wherever the coarse terrain
@@ -8352,6 +8352,7 @@ function foeShipKind(id){
   const gmap=new Map(),tdefs=[];M.parts.forEach((d,i)=>{if(d.kind==='turret'&&tdefs.length<PART_SLOTS-1){tdefs.push(d);gmap.set(i+1,tdefs.length);}});
   const root=g=>{let id=g,guard=0;while(id&&!gmap.has(id)&&guard++<6){const d=M.parts[id-1];id=d&&d.parent?d.parent:0;}return gmap.get(id)||0;};
   for(let v=0;v<M.G.length;v+=3){if(drop.has(M.G[v]))continue;const g=root(M.G[v]);for(let q=v;q<v+3;q++){F.P.push(M.P[q*3],M.P[q*3+1],M.P[q*3+2]);F.N.push(M.N[q*3],M.N[q*3+1],M.N[q*3+2]);F.C.push(M.C[q*4],M.C[q*4+1],M.C[q*4+2],M.C[q*4+3]);F.G.push(g);}}
+  F.parts=tdefs.map(d=>({kind:'aiturret',pivot:d.pivot}));                // so the group of every vertex is uploaded (the turrets turn)
   const k0=unitList.length;unitList.push([]);k=addUnitKind(F);
   if(k!==k0){FOE_SHIP_KIND.set(id,null);return null;}
   {const A=new Float32Array(PART_SLOTS*4),B=new Float32Array(PART_SLOTS*4),C=new Float32Array(PART_SLOTS*4);
@@ -8547,7 +8548,8 @@ function emitFoes(){
   if(Math.hypot(f.x-cam.x,f.z-cam.z)>UNIT_DRAW_R[UNIT.ENEMY])continue;
   const rp=ridePose(f.x,f.z,f.hd,foeNow,f.L),sk=f.sinkT;if(!f.dead)foeSpray(f);
   const fl=f.hp0?Math.pow(clamp(1-f.hp/f.hp0,0,1),1.5):0;if(f.kind!=null){let want=9;if(!f.dead&&player&&foeHostile(f)&&Math.hypot(player.x-f.x,player.z-f.z)<9000)want=wrapPi(headingOf(player.x-f.x,player.z-f.z)-f.hd);
-   if(want>8)f.trel=9;else{if(!(f.trel<8))f.trel=0;f.trel+=clamp(wrapPi(want-f.trel),-.02,.02);}}
+   const tdt=Math.min(.25,Math.max(0,simNow-(f.tT||simNow)));f.tT=simNow;   // real time, whatever the frame rate
+   if(want>8)f.trel=9;else{if(!(f.trel<8))f.trel=0;const st=.35*tdt;f.trel+=clamp(wrapPi(want-f.trel),-st,st);}}   // battleship turrets traverse about 20 degrees a second
   emit(f.kind??UNIT.ENEMY,f.x,f.y+rp.y-sk*sk*.3-fl*f.L*.012,f.z,f.hd,rp.pitch+Math.min(.55,sk*.05)-fl*.02,f.kind!=null?f.trel:rp.roll+Math.min(.95,sk*.09)+fl*.07*(f.side||1),f.fid+1,f.kind!=null?1:f.scale);
  }
 }
