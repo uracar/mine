@@ -29,7 +29,7 @@ remembers why it started. They just keep fighting.
 | | Bigger maps with more cities | ⬜ |
 | | Rivers and bridges | ⬜ |
 | | Map types: large city, desert, forest, snowy, naval (more islands) | ⬜ |
-| | More realistic terrain | ⬜ |
+| | More realistic terrain | 🔨 v5.4 ground: natural jungle greens, far less grain/shimmer, Pandora plant drifts subtle by day and glowing at night |
 | | Trenches and bunkers | ❓ |
 | | Destructible buildings | ❓ |
 

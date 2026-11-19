@@ -182,7 +182,7 @@ void main(){
  float nD=vnoise(q*2.1+3.);
  // ---- materials ----
  vec3 sand=lin(vec3(.66,.58,.42)),wet=lin(vec3(.34,.29,.22));
- vec3 dry=lin(vec3(.20,.34,.24)),lush=lin(vec3(.05,.27,.22)),forest=lin(vec3(.02,.10,.09));   // v4.9 Pandora: blue-green ground
+ vec3 dry=lin(vec3(.22,.30,.16)),lush=lin(vec3(.06,.21,.12)),forest=lin(vec3(.02,.09,.06));   // v5.4 natural jungle greens with a Pandora teal cast
  vec3 rockA=lin(vec3(.44,.41,.38)),rockB=lin(vec3(.30,.26,.23)),dirt=lin(vec3(.36,.28,.18));
  vec3 snow=lin(vec3(.95,.97,1.));
  float scz=clamp(-vMoist,0.,1.);   // below zero the same channel carries scorching from explosions
@@ -190,11 +190,12 @@ void main(){
  float pv=clamp((mst-1.)/2.,0.,1.);   // harbour pavement class rides in the moisture channel above 1
  float mo=mix(min(mst,1.),.5,clamp((mst-1.)*4.,0.,1.));
  float moist=clamp(mo+(nA-.5)*.5,0.,1.);
+ vec3 pandoraGlow=vec3(0.);
  vec3 grass=mix(dry,lush,smoothstep(.25,.7,moist));
  float far=smoothstep(150.,1800.,dist);
  float nE=vnoise(q*5.3+11.),nF=vnoise(q*17.+5.);
- float blade=mix(.75+.5*nE*(.6+.4*nF),1.,smoothstep(8.,70.,dist));
- grass*=blade*(.78+.44*nB)*(1.-.14*smoothstep(1200.,200.,dist)*(vnoise(q*.17+3.)-.5)*2.)*mix(.8+.4*nC*(.85+.3*nD),1.,far);
+ float blade=mix(.86+.28*nE*(.6+.4*nF),1.,smoothstep(8.,60.,dist));      // v5.4 less grain: the old speckle shimmered at a distance
+ grass*=blade*(.82+.36*nB)*(1.-.12*smoothstep(1200.,200.,dist)*(vnoise(q*.17+3.)-.5)*2.)*mix(.9+.2*nC*(.85+.3*nD),1.,smoothstep(40.,600.,dist));
  // forest on gentle slopes up to the tree line
  float treeLine=700.+nA*260.;
  float forestW=smoothstep(.62,.78,mo+(nB-.5)*.04)*(1.-smoothstep(540.,700.,h))*(1.-smoothstep(.22,.42,slope));
@@ -211,9 +212,11 @@ void main(){
   land=mix(land,scrub,smoothstep(.6,.78,nm2+(nm-.5)*.6)*.3*open);   // v4.8 lighter scrub, so dark ground means forest                                // dark scrub and bushes
   land=mix(land,heath*(.8+.4*nD),smoothstep(.66,.8,1.-nm+(nC-.5)*.3)*.5*open);                    // dry heath, brownish
   {float fl=vnoise(q*.021+77.)*.6+vnoise(q*.09-13.)*.4;                                  // v4.9 drifts of purple, teal and magenta plants
-   land=mix(land,lin(vec3(.30,.10,.34))*(.8+.4*nC),smoothstep(.66,.8,fl)*.55*open);
-   land=mix(land,lin(vec3(.05,.30,.30))*(.8+.4*nD),smoothstep(.62,.78,1.-fl+(nB-.5)*.4)*.45*open);
-   land=mix(land,lin(vec3(.20,.07,.18))*(.7+.6*nC),smoothstep(.8,.95,vnoise(q*.35+5.))*(1.-smoothstep(200.,1200.,dist))*.3*open);
+   float flP=smoothstep(.68,.82,fl)*open,flT=smoothstep(.64,.8,1.-fl+(nB-.5)*.4)*open;      // v5.4 Pandora plant drifts: subtler by day, they glow at night
+   land=mix(land,lin(vec3(.26,.12,.30))*(.85+.3*nC),flP*.32);
+   land=mix(land,lin(vec3(.06,.26,.24))*(.85+.3*nD),flT*.3);
+   pandoraGlow=lin(vec3(.75,.25,1.))*flP*smoothstep(.5,.75,nD)+lin(vec3(.15,.9,.8))*flT*smoothstep(.55,.8,nC);
+   land=mix(land,lin(vec3(.20,.07,.18))*(.7+.6*nC),smoothstep(.8,.95,vnoise(q*.35+5.))*(1.-smoothstep(200.,1200.,dist))*.15*open);
    land=mix(land,lin(vec3(.05,.09,.06))*(.7+.6*nD),forestW*.5);}   // a dark mossy forest floor
   float tw=(1.-smoothstep(.004,.011,abs(vnoise(q*.0031+3.)-.5)))*(1.-smoothstep(1800.,4500.,dist));
   land=mix(land,dirt*(.7+.5*nC)*(1.-.25*smoothstep(.003,.0,abs(vnoise(q*.0031+3.)-.5)-.002)),tw*.85*open*(1.-smoothstep(.15,.35,slope)));   // dirt tracks across the country
@@ -304,7 +307,7 @@ void main(){
  vec3 light=uLightCol*ndl*sunUp*shade*sunSh+amb*mix(1.,.8,1.-under)*mix(.8,1.,sunSh);
  // backlight through foliage and a little sheen on snow and wet sand
  light+=uLightCol*forestW*pow(max(dot(-V,uLightDir),0.),3.)*.12*sunUp;
- vec3 res=col*light;
+ vec3 res=col*light+pandoraGlow*uNight*.55*(1.-smoothstep(300.,2500.,dist));
  vec3 H=normalize(uLightDir+V);
  res+=uLightCol*pow(max(dot(N,H),0.),40.)*(snowW*.15+(1.-smoothstep(.0,.8,h))*.06*beachW)*sunUp;
  // ---- haze ----
