@@ -126,7 +126,7 @@ const WEAK_GPU=(()=>{try{const e=gl.getExtension('WEBGL_debug_renderer_info'),r=
  return /Intel|UHD|HD Graphics|Iris|Mali|Adreno|PowerVR|SwiftShader|llvmpipe|Microsoft Basic|Radeon\(TM\) Graphics|Vega \d Graphics/i.test(r)||(navigator.hardwareConcurrency||4)<=4;}catch(x){return false;}})();
 let qi=params.has('q')?clamp(+params.get('q'),0,3):(/Mobi|Android/i.test(navigator.userAgent)||WEAK_GPU?0:1);
 let Q=QUALITY[qi];
-let qiChosen=qi;                       // the quality the player picked (the governor may run below it for a while)
+let qiChosen=qi,qLocked=false;try{qLocked=localStorage.getItem('irontide.qlock')==='1';}catch(e){}                       // the quality the player picked (the governor may run below it for a while)
 const LEAF=64,LEVELS=8;                 // chunk sizes 64 m .. 8 km
 const FAR=40000;
 const FCOEF=2/Math.log2(FAR+1);
@@ -2812,7 +2812,7 @@ function bindSeg(id,pick,isOn){for(const b of $(id).children)b.onclick=()=>{pick
  if(opts.cycle===false){game.cycle=false;todSpeed=0;}
  if(typeof opts.sea==='number')seaBase=opts.sea;
  if(opts.wx&&opts.wx!=='auto'&&!params.has('wx')){wx.auto=false;setWeather(opts.wx,false);}
- bindSeg('s-q',v=>{qi=+v;qiChosen=qi;dyn=1;applyQuality();store.set('irontide.q',v);},v=>+v===qi);
+ bindSeg('s-q',v=>{qi=+v;qiChosen=qi;qLocked=true;store.set('irontide.qlock','1');dyn=1;applyQuality();store.set('irontide.q',v);},v=>+v===qi);
  bindSeg('s-t',v=>{game.cycle=v==='1';todSpeed=game.cycle?1/(60*22):0;opts.cycle=game.cycle;},v=>v===(game.cycle===false?'0':'1'));
  bindSeg('s-w',v=>{seaBase=+v;opts.sea=seaBase;},v=>Math.abs(+v-(seaBase??wind))<.2);
  bindSeg('s-x',v=>{if(v==='auto'){wx.auto=true;wx.timer=60;}else{wx.auto=false;setWeather(v,true);}opts.wx=v;},v=>v===(wx.auto?'auto':wx.kind));
@@ -4011,6 +4011,27 @@ function shipFloat(e,dt,t){
  if(wet>steps*2&&e.wetT<=0){e.wetT=.35;const u=(Math.random()-.3)*L*.5;shellFx.push({kind:'splash',x:e.x+c*u,y:e.fy+F,z:e.z+s*u,age:0,life:1.1,size:Math.max(2,B*.35)});}   // green water over the deck: a burst of spray
 }
 const _fh=new Float64Array(15);
+// ---------- v5.8 TT2 submarines: Space dives and surfaces ----------
+// Submerged a sub runs at 60% speed on its battery (75 s, recharging on the surface), shells and bombs cannot reach it, and only its
+// torpedoes and missiles can fire. When the battery runs flat it surfaces by itself.
+const SUB={depth:24,batt:75};
+function subTick(e,dt){
+ if(!VS||!VS.sub){e.subD=0;e.diving=false;return;}
+ e.batt=e.batt??SUB.batt;
+ if(e.diving){e.batt-=dt;if(e.batt<=0){e.batt=0;e.diving=false;toast('Battery flat - surfacing',3000);}}
+ else e.batt=Math.min(SUB.batt,e.batt+dt*.5);
+ const want=e.diving?SUB.depth:0;e.subD=(e.subD||0)+clamp(want-(e.subD||0),-2.5*dt,2*dt);
+ if(e.subD>.05){e.fy=Math.min(e.fy,-e.subD);e.fvy=0;e.fp*=Math.max(0,1-3*dt);e.fr*=Math.max(0,1-3*dt);}
+ subHud(e);
+}
+const subUnder=()=>!!(player&&VS&&VS.sub&&(player.subD||0)>6);
+const subEl=document.createElement('div');subEl.className='panel';subEl.style.cssText='position:absolute;left:50%;bottom:150px;transform:translateX(-50%);display:none;padding:7px 14px;font-size:12px;letter-spacing:.14em;border-left:3px solid #4fd8ff;pointer-events:none';
+document.getElementById('ui').append(subEl);
+function subHud(e){if(!VS||!VS.sub||game.state!=='playing'){subEl.style.display='none';return;}subEl.style.display='block';
+ const b=Math.round(e.batt/SUB.batt*100);subEl.innerHTML=`<b style="color:#4fd8ff">${(e.subD||0)>6?'SUBMERGED':e.diving?'DIVING…':'SURFACED'}</b> &nbsp;depth ${Math.round(e.subD||0)} m &nbsp;battery ${b}% &nbsp;<span class="kbd">SPACE</span> ${e.diving?'SURFACE':'DIVE'}`;}
+addEventListener('keydown',ev=>{if(ev.code==='Space'&&!ev.repeat&&player&&VS&&VS.sub&&game.state==='playing'&&!(ev.target&&/INPUT|TEXTAREA/.test(ev.target.tagName))){
+ if(!player.diving&&(player.batt??SUB.batt)<10){toast('Battery too low to dive - let it charge on the surface',2500);return;}
+ player.diving=!player.diving;toast(player.diving?'Diving - torpedoes and missiles only below the surface':'Surfacing',2000);}});
 function stepShip(dt){
  const e=player,spOn=(keys.ShiftLeft||keys.ShiftRight);
  const dead=engineDead();
@@ -4024,7 +4045,7 @@ function stepShip(dt){
  const want=dead?0:(keys.KeyA||keys.ArrowLeft?1:0)-(keys.KeyD||keys.ArrowRight?1:0);
  helm.rudder+=(want-helm.rudder)*Math.min(1,dt*(want?1.6:2.4));
  const pw=damagePower(),hq=damageHandling();e._hc=Math.max(0,(e._hc||0)-dt);
- const top=(helm.throttle>0?(spOn?VS.flank:VS.cruise):VS.cruise*.4)*pw,target=helm.throttle*top;
+ const top=(helm.throttle>0?(spOn?VS.flank:VS.cruise):VS.cruise*.4)*pw*(subUnder()?.6:1),target=helm.throttle*top;
  e.v+=Math.max(-5*dt,Math.min(3.2*dt*pw,target-e.v));
  // turning needs way on the ship; going astern reverses the effect of the rudder
  const way=Math.max(-1,Math.min(1,e.v/8)),turn=helm.rudder*.2*way*Math.max(.45,1-Math.abs(e.v)/90)*hq;
@@ -4066,7 +4087,7 @@ function stepShip(dt){
   foamTrail.push({x:e.x+c*-.49*L,z:e.z+s*-.49*L,age:0,life:12,r0:Bw*.32,r1:Bw*1.15,a:.4*k});
   while(foamTrail.length>260)foamTrail.shift();
  }
- shipFloat(e,dt,simNow);
+ shipFloat(e,dt,simNow);subTick(e,dt);
 }
 
 // ---------- driving a tank ----------
@@ -4372,6 +4393,7 @@ function drawUnitKinds(planes,vp,common,stats,kinds,noLod){
   for(let i=0;i<n;i++){
    const o=i*UNIT_FLOATS,x=L[o],y=L[o+1]-cam.y,z=L[o+2],d2=x*x+z*z;
    if(d2>R2)continue;
+   if(noLod){const sx=x-SH.cx,sz=z-SH.cz;if(sx*sx+sz*sz>SH.R2)continue;}   // v5.8 the shadow pass only draws what can shade the shadowed square
    if(d2>lodD2){if(!noLod)for(let c=0;c<UNIT_FLOATS;c++)LL.push(L[o+c]);continue;}      // far away: hand it to the low-detail kind, drawn later
    if(!visible(planes,x,y,z,rad))continue;
    for(let c=0;c<UNIT_FLOATS;c++)out[kept*UNIT_FLOATS+c]=L[o+c];kept++;
@@ -8163,6 +8185,23 @@ const sizeKOf=spec=>sizeK(spec,BASE_STATS[spec.type](spec).length);
 function sizedStats(spec){const S=BASE_STATS[spec.type](spec),k=sizeK(spec,S.length);for(const key of ['length','beam','radius','camDist','camH','gearH'])if(typeof S[key]==='number')S[key]*=k;S.sizeK=k;if(spec.type==='ship'&&spec.node&&SHIP_DES[spec.node]&&SHIP_DES[spec.node].cls==='dd'){S.cruise*=1.25;S.flank*=1.25;}   // v4.9 destroyers are the fast ones
  if(spec.type==='ship'){S.camDist=Math.max(S.camDist,40);S.camH=Math.max(S.camH,6);}else{S.camDist=Math.max(S.camDist,14);}return S;}
 const STATS={ship:sizedStats,tank:sizedStats,plane:sizedStats},MESHES={ship:spec=>scaleMesh(shipMesh(spec),sizeKOf(spec)),tank:spec=>scaleMesh(tankLights(tankMesh(spec)),TANK_K*sizeKOf(spec)),plane:spec=>scaleMesh(planeCamo(planeMesh(spec),spec),sizeKOf(spec))};
+// v5.8 TT2 dress: every TT2 vehicle glows TT2 cyan along parts of its own model (nothing added that could float free): a ship's sheer line,
+// a hover tank's skirt, an aircraft's engines and wingtips. The colour channel's part 7 makes a surface self-lit (unit shader).
+function tt2Dress(M,spec){
+ if(!spec||!spec.tt2||!M||!M.P||!M.C)return M;
+ const P=M.P,C=M.C,n=P.length/3,CY=[.3,.95,1.];let x0=1e9,x1=-1e9,y0=1e9,y1=-1e9,zm=0;
+ for(let i=0;i<n;i++){const x=P[i*3],y=P[i*3+1],z=Math.abs(P[i*3+2]);if(x<x0)x0=x;if(x>x1)x1=x;if(y<y0)y0=y;if(y>y1)y1=y;if(z>zm)zm=z;}
+ const glow=i=>{C[i*4]=CY[0];C[i*4+1]=CY[1];C[i*4+2]=CY[2];C[i*4+3]=7;};
+ if(spec.type==='ship'){const B=2,nb=Math.ceil((x1-x0)/B)+1,zb=new Float32Array(nb);
+  for(let i=0;i<n;i++){const y=P[i*3+1];if(y<.4)continue;const k=Math.floor((P[i*3]-x0)/B),z=Math.abs(P[i*3+2]);if(z>zb[k])zb[k]=z;}
+  const N=M.N,side=i=>!N||Math.abs(N[i*3+1])<.45,yb=new Float32Array(nb).fill(-1e9);
+  for(let i=0;i<n;i++){const y=P[i*3+1];if(y<.4||!side(i))continue;const k=Math.floor((P[i*3]-x0)/B);if(Math.abs(P[i*3+2])>=zb[k]-.12&&y>yb[k])yb[k]=y;}
+  for(let i=0;i<n;i++){const y=P[i*3+1];if(y<.4||!side(i))continue;const k=Math.floor((P[i*3]-x0)/B);if(Math.abs(P[i*3+2])>=zb[k]-.12&&zb[k]>zm*.5&&y>yb[k]-.9)glow(i);}}   // a thin band along the top of the hull sides only
+ else if(spec.type==='tank'){const h=Math.max(.25,(y1-y0)*.1);for(let i=0;i<n;i++)if(P[i*3+1]<y0+h)glow(i);}
+ else{const L=x1-x0;for(let i=0;i<n;i++){const x=P[i*3],z=Math.abs(P[i*3+2]);if(x<x0+L*.05||z>zm*.94)glow(i);}}
+ return M;
+}
+for(const t of ['ship','tank','plane']){const f=MESHES[t];MESHES[t]=spec=>tt2Dress(f(spec),spec);}
 const vehicleStats=spec=>STATS[spec.type](spec);
 const vehicleMesh=spec=>MESHES[spec.type](spec);
 
@@ -8245,6 +8284,7 @@ function foeFire(f,e){
 
 function hitPlayer(s){
  const e=player;if(!e||game.state!=='playing'||game.hull<=0)return false;
+ if(subUnder())return false;                                     // v5.8 a submerged sub is out of reach of shells and bombs
  const dx=s.x-e.x,dz=s.z-e.z;
  if(VS.type==='ship'){
   const c=Math.cos(e.hd),sn=Math.sin(e.hd),lx=dx*c-dz*sn,lz=dx*sn+dz*c;
@@ -8479,6 +8519,7 @@ function setPartUniforms(){
 const hasGuns=()=>pParts.some(d=>d.kind==='barrel');
 // the gun fires: barrels slide back, flashes show, and the gun cannot fire again until it has reloaded
 function fireGun(){
+ if(subUnder())return;                                                 // v5.8 no main guns while submerged
  if(!hasGuns()||pa.reload>0)return false;
  pa.fireT=0;pa.reload=(VS.type==='ship'?4.5+Math.min(2.5,VS.hp/HP_MUL.ship*1.2):1.3)*(typeof t6Buff==='function'?t6Buff('reload'):1);   // v3.6: big ships' main guns take a while to reload
  for(const d of pParts)d.shot=false;
@@ -9302,7 +9343,7 @@ function muzzleFx(x,y,z,size){shellFx.push({kind:'puff',x,y,z,age:0,life:.3,size
 
 const GUN_CAL={A:.34,'4':.4,B:.5,J:.78};                                         // tracer size by calibre: machine gun, rotary, autocannon, heavy cannon
 var FIRE_K=1;const titanFireK=()=>{if(VS&&(VS.type!=='plane'||wep.kit))return 1;const n=VS&&T1_LEN[VS.type]?VS.length/T1_LEN[VS.type]:1;return n>1.2?Math.min(5,Math.pow(n,.48)):1;};   // shots grow with the vehicle: about 5x on a tier-7 giant
-function fireSlot(sl){FIRE_K=titanFireK();try{return fireSlot0(sl);}finally{FIRE_K=1;}}
+function fireSlot(sl){const S0=wep.slots[sl];if(subUnder()&&S0&&!/torp|missile/.test(S0.kind||'')){toast('Submerged: only torpedoes and missiles - SPACE to surface for the guns',1800);return false;}FIRE_K=titanFireK();try{return fireSlot0(sl);}finally{FIRE_K=1;}}
 function fireSlot0(sl){
  const S=wep.slots[sl];if(!S||!S.mounts.length||S.cd>0||S.rl>0)return false;
  if(S.ammo<1){startReload(S);return false;}
@@ -13753,7 +13794,7 @@ function salvMul(kind,dom){
 for(const t of ['ship','tank','plane']){const base=STATS[t];STATS[t]=spec=>{
  const st=base(spec),d=DOM_OF[t],pk=(spec.tt2&&NODE.has(spec.tt2)?NODE.get(spec.tt2).perk:spec.node&&NODE.has(spec.node)?NODE.get(spec.node).perk:null)||{};
  const hp=salvMul('hp',d)*(pk.hp||1),sp=salvMul('speed',d)*(pk.speed||1);
- st.hp*=hp;st.cruise*=sp;st.flank*=sp;if(st.stall)st.stall=st.stall;if(pk.fp&&st.firepower)st.firepower*=pk.fp;st.perk=pk;st.node=spec.node||null;st.tt2=spec.tt2||null;st.hover=!!(spec.tt2&&t==='tank');return st;};}
+ st.hp*=hp;st.cruise*=sp;st.flank*=sp;if(st.stall)st.stall=st.stall;if(pk.fp&&st.firepower)st.firepower*=pk.fp;st.perk=pk;st.node=spec.node||null;st.tt2=spec.tt2||null;st.hover=!!(spec.tt2&&t==='tank');st.sub=!!(spec.tt2&&t==='ship'&&/-S\d/.test(spec.tt2));return st;};}
 function salvCargoCap(){if(!vehicle)return 300;const pk=vehicle.node&&NODE.has(vehicle.node)?NODE.get(vehicle.node):null;return Math.round(TIER_CARGO[specTier(vehicle)-1]*salvMul('cargo',DOM_OF[vehicle.type]));}
 function salvReloadMul(){const pk=vehicle&&vehicle.node&&NODE.has(vehicle.node)?NODE.get(vehicle.node).perk||{}:{};return salvMul('reload')*(pk.reload||1);}
 
@@ -13978,7 +14019,7 @@ function renderHangar(){
   <div class="hg-bank"><small>BANKED SALVAGE${hgTT===2?' &middot; TECH':''}</small><b>&#9670; ${S.bank.toLocaleString()}${hgTT===2?` &nbsp;&#9881; ${S.tech.toLocaleString()}`:''}</b><span>${S.cargo?'+'+S.cargo+' carried (bank it at a base)':'carried: none'}</span></div>
   <button class="btn sm" id="hg-x">${hgFrom==='play'?'BACK TO THE FIGHT (B)':hgFrom==='port'?'BACK TO THE BASE':'BACK'}</button></div>
   <div class="hg-tabs">${['land','sea','air'].map(k=>{const L=TREE[k].filter(n=>!!n.tt2===(hgTT===2)),o=L.filter(n=>nodeOwned(n.id)).length;return `<button data-dom="${k}" class="${k===d?'on':''}" style="--dc:${DOM_COL[k]}"><b>${DOM_LABEL[k]}</b><span>${hgTT===2&&k==='land'?'hover tanks':k==='land'?'tanks':k==='sea'?'ships':'aircraft'} &middot; ${o}/${L.length}</span></button>`;}).join('')}</div>
-  <div class="hg-body"><div class="hg-scroll"><div class="hg-tree" style="--dc:${DOM_COL[d]}"><svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none">${lines}</svg>${nodes.map(card).join('')}
+  <div class="hg-body"><div class="hg-scroll"><div class="hg-tree" style="--dc:${DOM_COL[d]};--colw:${(100/tiers.length).toFixed(3)}%"><svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none">${lines}</svg>${nodes.map(card).join('')}
    <div class="hg-tiers" style="grid-template-columns:repeat(${tiers.length},1fr)">${tiers.map(t=>`<span>${hgTT===2?(t===1?'TT2 TIER 1 &middot; &#9670; '+TT2_COST[0].toLocaleString():'TIER '+t+' &middot; &#9881; '+TT2_COST[t-1].toLocaleString()):t===1?'START':'TIER '+t+' &middot; &#9670; '+TIER_COST[t-1].toLocaleString()}</span>`).join('')}</div></div></div>
   <div class="hg-side"><div class="hg-sel"><small>${DOM_LABEL[d]} &middot; TIER ${sel.t} &middot; ${ns==='own'?'IN SERVICE':ns==='open'?'AVAILABLE':'LOCKED'}</small><h3>${sel.name}</h3><p>${sel.role.replace(/^NEW · /,'<em>NEW</em> ')}</p>
    ${bar('SPEED',st.cruise,sc[0],kn(st.cruise))}${bar('HEALTH',st.hp/(HP_MUL[sel.type]||1),2.2,Math.round(st.hp*HP_PER).toLocaleString()+' HP')}${bar('FIREPOWER',st.firepower,400,String(Math.round(st.firepower)))}${bar('CARGO',TIER_CARGO[sel.t-1]*salvMul('cargo',d),1500,String(Math.round(TIER_CARGO[sel.t-1]*salvMul('cargo',d))))}
@@ -14390,6 +14431,7 @@ function shadowPass(A,common){
  const fx=player?player.x:cam.x,fz=player?player.z:cam.z,fy=player?Math.max(0,T.height(fx,fz)):Math.max(0,T.height(fx,fz)),R=Q.shR;
  const fw=fwdVec(),fl=Math.hypot(fw[0],fw[2])||1;            // shift the square a little ahead of the camera: that is where the eye looks
  shadowMatrix(L,fx+fw[0]/fl*R*.35,fy,fz+fw[2]/fl*R*.35,R,Q.sh,[cam.x,cam.y,cam.z]);
+ SH.cx=fx+fw[0]/fl*R*.35-cam.x;SH.cz=fz+fw[2]/fl*R*.35-cam.z;SH.R2=(R*1.6)*(R*1.6);
  gl.activeTexture(gl.TEXTURE0+SHADOW_UNIT);gl.bindTexture(gl.TEXTURE_2D,null);gl.activeTexture(gl.TEXTURE0);   // never sample the map while drawing it
  gl.bindFramebuffer(gl.FRAMEBUFFER,SH.fb);gl.viewport(0,0,Q.sh,Q.sh);
  gl.depthMask(true);gl.clearDepth(1);gl.clear(gl.DEPTH_BUFFER_BIT);
@@ -14435,7 +14477,7 @@ function frame(now){
    const floor=(qi===0?.6:.7)/Math.max(1,Math.min(window.devicePixelRatio||1,Q.dpr));   // v5.0 on Low it may go to 60%      // v3.4: the governor may go down to 70% of one pixel per CSS pixel (the sharpening pass keeps it crisp)
    // v3.1: aim for a smooth 60 - start trimming at 46 fps, not 34 (smoothness matters more than detail in a fight)
    if(fps<50&&adaptT>1&&dyn>floor+.01){dyn=Math.max(floor,dyn-.1);adaptT=0;slowN++;W=0;}
-   else if(fps<50&&adaptT>1&&qi>0&&dyn<=floor+.01){qi--;slowN=0;applyQuality(true);adaptT=-3;}   // at the floor: trim draw distance and effects instead of pixels
+   else if(fps<50&&adaptT>1&&qi>0&&dyn<=floor+.01&&!qLocked){qi--;slowN=0;applyQuality(true);adaptT=-3;}   // v5.8 never below the quality the player picked   // at the floor: trim draw distance and effects instead of pixels
    else if(fps<30&&adaptT>1&&qi===0&&dyn<=floor+.01&&!SH.auto){SH.auto=true;adaptT=-3;}   // v5.0 last resort on Low: drop the sun shadows
    else if(SH.auto&&fps>45&&adaptT>20){SH.auto=false;adaptT=-3;}
    else if(fps>55&&adaptT>6&&dyn<1){dyn=Math.min(1,dyn+.05);adaptT=0;W=0;}
