@@ -4163,7 +4163,8 @@ function renderOps(){
 window.__contracts={get contract(){return contract;},conOffers,conAccept,conClear,contractStep,contractDock,conComplete,get done(){return conDone;}};
 
 // ---------- the game around the world: home screen, HUD, pause and settings, fuel and hull, harbours and the port screen, saving ----------
-const GAME_TITLE='IRON TIDE';
+const GAME_TITLE='IRON TIDE',GAME_VERSION='v6.1';
+try{document.getElementById('load').textContent='LOADING WORLD… '+GAME_VERSION;}catch(e){}
 const SAVE_KEY='irontide.save.v1';
 const BURN_IDLE=.00004,BURN_AHEAD=.00048;                 // fuel (0..1) per second; flank speed burns 2.5 times the ahead rate
 const game={state:'loading',fuel:1,hull:1,kills:0,score:0,wp:null,dock:null,service:null,port:null,debug:params.has('debug'),cycle:true,start:null,warned:{}};
@@ -4373,7 +4374,7 @@ function setState(s){
  $('map').style.display=(playing||s==='docking')?'block':'none';
  if(!playing){$('prompt').style.display='none';$('wp').style.display='none';$('tow').style.display='none';if(document.exitPointerLock&&document.pointerLockElement)document.exitPointerLock();}
  hudEl.style.display=game.debug?'block':'none';
- if(s==='menu'){orbit.pitch=.16;orbit.dist=330;$('m-cont').disabled=!hasSave();if(!profile)showSignup();else if(profile.fid===undefined)showSideChoice();else renderPilot();$('m-foot').textContent=ladLoad().sandbox?'SANDBOX · EVERYTHING OPEN':'THE LADDER · STEP '+(ladStep()+1)+' OF '+LADDER.length+' · '+LADDER[ladStep()].name.toUpperCase();if(typeof renderMenuCard==='function')renderMenuCard();}
+ if(s==='menu'){orbit.pitch=.16;orbit.dist=330;$('m-cont').disabled=!hasSave();if(!profile)showSignup();else if(profile.fid===undefined)showSideChoice();else renderPilot();$('m-foot').textContent=GAME_VERSION+' · '+(ladLoad().sandbox?'SANDBOX · EVERYTHING OPEN':'THE LADDER · STEP '+(ladStep()+1)+' OF '+LADDER.length+' · '+LADDER[ladStep()].name.toUpperCase());if(typeof renderMenuCard==='function')renderMenuCard();}
  if(s==='paused')$('p-sub').textContent=`${player?Math.abs(player.v*speedUnit(VS.type==='ship')[0]).toFixed(0):0} ${speedUnit(VS.type==='ship')[1].toLowerCase()}  ·  fuel ${Math.round(game.fuel*100)}%  ·  hull ${Math.round(game.hull*100)}%`;
 }
 function lockPointer(){if(!locked&&!NOLOCK&&canvas.requestPointerLock){try{const r=canvas.requestPointerLock();if(r&&r.catch)r.catch(noLockOn);}catch(e){noLockOn();}}}
@@ -14699,6 +14700,7 @@ function deathWatch(dt){
 }
 function deathPenalty(){
  dw.alive=0;
+ if(TEST)return;                                                    // no penalties on a test drive
  const n=VS&&(VS.tt2||VS.node)&&NODE.get(VS.tt2||VS.node);if(!n||OWNER)return;
  const S=salvLoad(),d=n.dom,t=n.t,now=Date.now(),TR=TREE[d].filter(q=>!!q.tt2===!!n.tt2);
  S.deaths=S.deaths||{};const L=(S.deaths[d]=(S.deaths[d]||[]).filter(x=>now-x<3600e3));L.push(now);
@@ -16032,6 +16034,7 @@ function salvTick(t,dt){
 }
 function salvBank(where){
  const S=salvLoad();if(S.cargo<=0)return;
+ if(TEST){S.cargo=0;salvSave();toast('Test drive - nothing is banked',2500);return;}
  const a=Math.round(S.cargo*(where==='outpost'&&docOn('fort')?1.15:1));
  S.bank+=a;S.total+=a;{const tk=Math.round(a*(VS&&VS.tt2?1:.02));S.tech=(+S.tech||0)+tk;if(VS&&VS.tt2&&tk)setTimeout(()=>toast('+'+tk+' TECH (Tech Tree 2)',2500),900);}if(boot&&!boot.done){boot.banked=1;bootSave();}if(S.wk!==salvWeek()){S.wk=salvWeek();S.sw=0;S.dv='----';}S.sw+=a;S.cargo=0;salvSave();salvHudDirty=true;docCache.t=-1;
  const on=opts.banners;opts.banners=true;showBanner('SALVAGE BANKED','+'+a,'BANK '+S.bank.toLocaleString()+' · SPEND IT IN THE SERVICE TREE (B)','#f2b84b');opts.banners=on;
@@ -16091,6 +16094,15 @@ let salvWkT=0;
 function nodeState(n){return nodeOwned(n.id)?'own':nodeOpen(n)?'open':'lock';}
 // v5.7 which tree the hangar shows (1 or 2), what a node costs and what it is paid with
 let hgTT=1;
+// v6.1 test drives: any vehicle in the hangar for two minutes, earning nothing
+let TEST=null;
+const testEl=document.createElement('div');testEl.className='panel';testEl.style.cssText='position:absolute;right:14px;top:180px;display:none;padding:7px 12px;font-size:12px;letter-spacing:.14em;border-left:3px solid #ffd36b;pointer-events:none';
+document.getElementById('ui').append(testEl);
+setInterval(()=>{if(!TEST){testEl.style.display='none';return;}const left=Math.max(0,TEST.until-performance.now())/1000;
+ if(game.state==='playing'){testEl.style.display='block';testEl.innerHTML=`<b style="color:#ffd36b">TEST DRIVE</b> &nbsp;${NODE.get(TEST.id).name} &nbsp;${Math.floor(left/60)}:${String(Math.floor(left%60)).padStart(2,'0')}`;}
+ if(left<=0){TEST=null;testEl.style.display='none';const S=salvLoad();S.cargo=0;salvSave();
+  for(const t of ['ship','tank','plane']){const id=S.pick[DOM_OF[t]];garage.specs[t]=id&&NODE.has(id)&&nodeOwned(id)?nodeSpec(NODE.get(id)):null;}
+  if(game.state==='playing'||game.state==='paused')setState('menu');toast('Test drive over - unlock it in the hangar to keep it',5000);}},500);
 const nodeCost=n=>n.tt2?TT2_COST[n.t-1]:TIER_COST[n.t-1];
 const nodePaid=n=>n.tt2&&n.t>1?'tech':'bank';
 const nodeCur=n=>nodePaid(n)==='tech'?'&#9881; ':'&#9670; ';
@@ -16127,7 +16139,7 @@ function renderHangar(){
    ${(sel.next||[]).length?`<p class="lead">Leads to: ${sel.next.map(id=>NODE.get(id).name).join(' <i>or</i> ')}</p>`:'<p class="lead">Top of the tree.</p>'}
    <div class="hg-act">${ns==='own'?`<button class="btn pri" id="hg-go">DEPLOY THIS ${sel.type==='plane'?'AIRCRAFT':sel.type.toUpperCase()}</button><button class="btn" id="hg-gar">CUSTOMISE</button>`
      :ns==='open'?(()=>{const c=nodeCost(sel),have=nodePaid(sel)==='tech'?S.tech:S.bank;return `<button class="btn pri" id="hg-buy" ${have<c&&!OWNER?'disabled':''}>UNLOCK &middot; ${nodeCur(sel)}${c.toLocaleString()}</button>${have<c?`<p class="need">${(c-have).toLocaleString()} more ${nodePaid(sel)==='tech'?'TECH needed - earned in TT2 vehicles (TT1 vehicles earn almost none)':'salvage needed'}</p>`:''}`;})()
-     :`<p class="need">${sel.tt2&&sel.t===1?'Tech Tree 2 opens when you own '+NODE.get(TT2_T7[d]).name+' (tier 7 of Tech Tree 1).':'Unlock '+parents.join(' or ')+' first.'}</p>`}</div></div>
+     :`<p class="need">${sel.tt2&&sel.t===1?'Tech Tree 2 opens when you own '+NODE.get(TT2_T7[d]).name+' (tier 7 of Tech Tree 1).':'Unlock '+parents.join(' or ')+' first.'}</p>`}${ns!=='own'?`<button class="btn" id="hg-test" style="margin-top:8px">TEST DRIVE &middot; 2 MIN</button><p class="lead">Try it before you unlock it - nothing earned on a test drive is kept.</p>`:''}</div></div>
    <div class="hg-ref"><small>${DOM_LABEL[d]} REFITS &middot; EVERY ${d==='land'?'TANK':d==='sea'?'SHIP':'AIRCRAFT'}</small>${REFITS.map(r=>{const l=refitLvl(d,r.id),c=REFIT_COST[l];
     return `<div class="rf"><div><b>${r.name}</b><span>${r.d}</span><em>${[0,1,2,3,4].map(k=>`<i class="${k<l?'on':''}"></i>`).join('')}</em></div><button class="btn sm" data-ref="${r.id}" ${l>=5||(S.bank<c&&!OWNER)?'disabled':''}>${l>=5?'MAX':'&#9670; '+c.toLocaleString()}</button></div>`;}).join('')}</div>
    <div class="hg-doc"><small>${FACTIONS[PF].name.toUpperCase()} DOCTRINES THIS WEEK</small>${DOCTRINE.map((D,i)=>{const a=dc.act[i];return `<p>${dc.pool>=D.need?`<b style="color:#f2b84b">${a?(a===D.a.id?D.a.name:D.b.name):'VOTE NOW'}</b>`:`<span>${D.need.toLocaleString()}</span>`}</p>`;}).join('')}<a href="#" id="hg-doc">Open the War Room &rsaquo;</a></div>
@@ -16144,6 +16156,8 @@ function renderHangar(){
  const go=$('hg-go');if(go)go.onclick=()=>{S.pick[d]=sel.id;salvSave();const spec=nodeSpec(sel);garage.specs[sel.type]=spec;garage.type=sel.type;
   if(hgFrom==='port'&&game.port){garage.from='port';garage.port=game.port;closeHangar();deployFromGarage();return;}   // v3.7 at a dock: swap to it right here
   garage.from='menu';hgReturn=hgFrom;closeHangar();deployFromGarage();};
+ const tst=$('hg-test');if(tst)tst.onclick=()=>{TEST={until:performance.now()+120000,id:sel.id};const spec=nodeSpec(sel);garage.specs[sel.type]=spec;garage.type=sel.type;
+  garage.from='menu';hgReturn=hgFrom;closeHangar();deployFromGarage();toast('TEST DRIVE: '+sel.name+' for 2 minutes - nothing earned is kept',4500);};
  const toCust=n=>{S.pick[d]=n.id;salvSave();garage.specs[n.type]=nodeSpec(n);if(hgFrom==='port'&&game.port){closeHangar();openGarage('port');garageType(n.type);return;}const fromPlay=hgFrom==='play';closeHangar();if(fromPlay&&game.state==='paused')setState('menu');openGarage('menu');garageType(n.type);};
  const ga=$('hg-gar');if(ga)ga.onclick=()=>toCust(sel);
  const mc=$('hg-mode-cust');if(mc)mc.onclick=()=>{const n=ns==='own'?sel:NODE.get(S.pick[d]&&NODE.has(S.pick[d])&&nodeOwned(S.pick[d])?S.pick[d]:(TREE[d].find(x=>nodeOwned(x.id))||sel).id);if(!nodeOwned(n.id)){toast('Unlock a '+(d==='land'?'tank':d==='sea'?'ship':'aircraft')+' first',2600);return;}toCust(n);};
