@@ -5385,6 +5385,26 @@ SHIP_DES.T2B={cls:'bb',builder:'tt2b',L:250,B:34,fb:8.4,dr:10,bk:1,c:[.24,.26,.3
  med:[[24,0,0,5],[-16,0,3.1416,5],[-9,.66,1.5708,0],[-9,-.66,-1.5708,0]],
  fx:[[29,.64,0,0],[29,-.64,0,0],[-21,.64,3.1416,0],[-21,-.64,3.1416,0]],
  sec:{g:[[42,0,0,0],[-45,0,0,0]]}};
+// v5.9 TT2 ships: a design of their own each. Role letter after the dash: I interceptor, D destroyer, C cruiser, B battleship, S submarine.
+// Sizes grow with the tier; guns, missiles and torpedoes follow the name (M missiles, T torpedoes, LM long-range missiles). Drawn by shipTT2.
+{const TT2C=[.22,.24,.28],TT2D=[.28,.29,.32],MOD={flare:.18,sheer:.36,rake:.07,sW:.72,sT:.18,bT:.5,sR:.01};
+ const SUBF={flare:0,sheer:0,rake:-.02,sW:.98,sT:.04,bT:.78,tumble:.25,sR:0};
+ const mk=(id,role,t,o)=>{SHIP_DES[id]={cls:'bb',builder:'tt2',role,tier:t,c:TT2C,d:TT2D,lv:1.2,gr:2.2,tn:2,num:'',form:MOD,guns:[],...o};};
+ mk('T2I1','I',1,{L:155,B:16,fb:6.4,dr:5.6,gr:1.9,tn:1,guns:[[37,0,0]],fx:[[27,.6,0,0],[27,-.6,0,0]],sec:{g:[[22,0,0,0],[-30,0,0,0]]}});
+ mk('T2S2','S',2,{L:120,B:12,fb:1.7,dr:9,form:SUBF,sec:{g:[[4,0,0,0],[-6,0,0,0]],i:[[40,.4,0,0],[40,-.4,0,0]]}});
+ mk('T2C2','C',2,{L:175,B:19,fb:6.8,dr:6.6,gr:1.8,tn:2,guns:[[37,0,0],[-37,1,0]],sec:{i:[[-8,.55,1.5708,0],[-8,-.55,-1.5708,0],[-16,.55,1.5708,0],[-16,-.55,-1.5708,0]]}});
+ mk('T2S3','S',3,{L:140,B:13,fb:1.8,dr:10,form:SUBF,sec:{g:[[2,0,0,0],[-8,0,0,0],[-18,0,0,0]],i:[[40,.4,0,0],[40,-.4,0,0]]}});
+ mk('T2D3','D',3,{L:160,B:17,fb:6.2,dr:6,gr:1.9,tn:1,guns:[[38,0,0]],fx:[[-38,0,3.1416,0]],sec:{i:[[-6,.55,1.5708,0],[-6,-.55,-1.5708,0],[-14,.55,1.5708,0],[-14,-.55,-1.5708,0]]}});
+ mk('T2S4L','S',4,{L:165,B:14,fb:1.9,dr:11,form:SUBF,sec:{g:[[6,0,0,0],[-4,0,0,0],[-14,0,0,0],[-24,0,0,0]]}});
+ mk('T2S4T','S',4,{L:150,B:13.5,fb:1.9,dr:10.5,form:SUBF,sec:{i:[[40,.42,0,0],[40,-.42,0,0],[34,.5,0,0],[34,-.5,0,0]]}});
+ mk('T2B4A','B',4,{L:275,B:36,fb:8.6,dr:10.5,gr:2.8,tn:3,form:{...MOD,sW:.5,sT:.26,flare:.12},guns:[[33,0,0],[25,0,1]],med:[[12,.62,0,0],[12,-.62,0,0]],fx:[[-20,.66,3.1416,0],[-20,-.66,3.1416,0]],sec:{g:[[42,0,0,0]]},air:1});
+ mk('T2D4','D',4,{L:185,B:20,fb:6.6,dr:6.6,gr:2,tn:2,guns:[[37,0,0],[-37,1,0]],sec:{g:[[24,0,0,0],[-24,0,0,0]],i:[[-8,.55,1.5708,0],[-8,-.55,-1.5708,0]]}});
+ mk('T2C4','C',4,{L:215,B:24,fb:7.4,dr:7.6,gr:2.6,tn:3,form:{...MOD,sW:.55},guns:[[36,0,0],[28,0,1],[-28,1,1],[-36,1,0]],sec:{g:[[-2,.6,0,0],[-2,-.6,0,0]]}});
+ mk('T2B5','B',5,{L:300,B:38,fb:9,dr:11,gr:2.7,tn:3,form:{...MOD,sW:.48,sT:.27,flare:.12},guns:[[34,0,0],[26,0,1],[-30,1,0]],med:[[10,.64,0,0],[10,-.64,0,0],[-12,.64,3.1416,0],[-12,-.64,3.1416,0]],sec:{g:[[44,0,0,0],[17,.5,0,0],[17,-.5,0,0],[-42,0,0,0]]},lm:1});
+ mk('T2D5','D',5,{L:205,B:22,fb:7,dr:7.2,gr:2,tn:2,guns:[[38,0,0]],fx:[[30,.6,0,0],[30,-.6,0,0],[-36,.6,3.1416,0],[-36,-.6,3.1416,0]],sec:{g:[[26,0,0,0],[-18,0,0,0],[-28,0,0,0]]},aa:1});
+ mk('T2S5','S',5,{L:175,B:15,fb:2,dr:12,form:SUBF,sec:{g:[[4,0,0,0],[-8,0,0,0]],i:[[40,.42,0,0],[40,-.42,0,0],[34,.5,0,0],[34,-.5,0,0]]}});
+ mk('T2B6','B',6,{L:420,B:60,fb:11,dr:13,gr:2.6,tn:3,form:{...MOD,sW:.3,sT:.3,flare:.14},guns:[[36,0,0],[29,0,1],[-36,1,0]],med:[[16,.66,0,0],[16,-.66,0,0],[-22,.66,3.1416,0],[-22,-.66,3.1416,0]],sec:{g:[[44,0,0,0],[8,.6,0,0],[8,-.6,0,0]]},air:1,lm:1});
+ mk('T2S6','S',6,{L:200,B:17,fb:2.2,dr:13,form:SUBF,sec:{g:[[8,0,0,0],[0,0,0,0],[-8,0,0,0],[-16,0,0,0],[-24,0,0,0]]}});}
 const SHIP_LOOK=SHIP_DES;
 const _lookHull=new Map();
 var TANKD={},SHIPD={};const _design=new Map();                                  // v4.1 tank and ship designs (filled in with their meshes)
@@ -5809,7 +5829,7 @@ function shipMeshTree(spec){
  };
  const K={D,h,M,L,B,hb,p,q,lv,e,id,top,under,deckC,dark,light,acc,BLK,STEEL,RAIL,ORG,sec,N,X,Y,bAt,sideZ,FY,flat,EX,place,bx,flatq,mark,ring,ribbon,railLine,rails,hs,ports,fun,pole,tripod,latt,plat,dirc,dome,radar,dish,
   tub,aa1,aa4,aaH,dp,ciws,canis,abl,tubesC,boat,davBoat,crane,catap,slight,vent,vlsF,helipad,jet,heli,prop,wac,mods,clear,GR,fit,R,sd,svc};
- (D.builder==='tt2b'?shipTT2B:({dd:shipDD,pt:shipPT,ca:shipCA,ff:shipCA,ars:shipCA,bb:shipBB,mon:shipBB,cv:shipCV})[D.cls])(K);
+ (D.builder==='tt2b'?shipTT2B:D.builder==='tt2'?shipTT2:({dd:shipDD,pt:shipPT,ca:shipCA,ff:shipCA,ars:shipCA,bb:shipBB,mon:shipBB,cv:shipCV})[D.cls])(K);
  return M;
 }
 // ---- shared pieces for the class builders ----
@@ -6091,6 +6111,62 @@ function shipBB(K){
   crane(X(-48.5),Y(X(-48.5)),0,0,1.4);if(id==='S4d'){prop(X(-40),Y(X(-40)),0,Math.PI,10*e,[.42,.47,.4]);}}
  // (v4.9 the Flagship's stern comes to a point: its two jets sit on the 01 deck aft)
  for(const sg of [-1,1])for(const xp of fl?[]:[4,-3])if(clear(X(xp),sg*w*.42,2*e))davBoat(X(xp),y1,sg*(w*.5+.2*e),8*e);
+ fit({rail:[-49,48]});
+}
+// ================= v5.9 TT2 ships: stealth-era hulls drawn by role =================
+// Every TT2 ship shares a look - faceted, leaning superstructures, phased arrays, integrated pyramid masts, cyan trim - but each role is built
+// differently: a sleek interceptor, low angular destroyers, two-island cruisers, towering battleships, and submarines with a sail and fins.
+function shipTT2(K){
+ const {D,M,X,Y,bAt,hs,fun,latt,radar,dome,dirc,aa1,aa4,aaH,ciws,canis,tubesC,helipad,vlsF,e,lv,top,dark,fit,clear,place}=K;
+ const CY=[.3,.95,1.],G1=shade(top,1.05),G2=shade(top,.9),G3=shade(top,.75),r=D.role,t=D.tier||1;
+ const trim=(a,b,y,w)=>{for(const sg of [-1,1])box(M,X((a+b)/2),y-.1*e,sg*(w*.5-.12*e),(X(b)-X(a))*.8,.12*e,.12*e,CY,7);};   // thin glowing strips along the roof edges
+ const blk=(a,b,y,hh,w,o={})=>{const yy=hs(a,b,y,hh,w,{cf:.55,ca:.45,k:.86,col:G1,...o});trim(a,b,yy,w*.86);return yy;};   // a faceted, leaning block
+ const pyr=(x,y,base,hh,col=G2)=>{prism(M,octo(X(x),0,base,base,base*.32),y,y+hh,col,0,.32);return y+hh;};                   // an integrated pyramid mast
+ const edgeGlow=()=>{for(const sg of [-1,1])for(let xp=-48;xp<46;xp+=4){const xa=X(xp),xb=X(Math.min(46,xp+4));cyl(M,[xa,Y(xa)-.35*e,sg*(bAt(xa)-.05*e)],[xb,Y(xb)-.35*e,sg*(bAt(xb)-.05*e)],.13*e,.13*e,4,CY,7,false);}};
+ if(r==='S'){                                                     // ---- a submarine: a long low hull, a sail with diving planes, a cross tail
+  const xs=X(12+(t>4?4:0)),ys=Y(xs),sw=Math.max(2.2,bAt(xs)*.36),sl=X(9+t)-X(0);
+  prism(M,[[xs-sl*.45,-sw/2],[xs+sl*.5,-sw*.35],[xs+sl*.55,0],[xs+sl*.5,sw*.35],[xs-sl*.45,sw/2],[xs-sl*.55,0]],ys,ys+6.5*e+t*.5,G2,0,.92);   // the sail
+  const yt=ys+6.5*e+t*.5;box(M,xs,yt,0,sl*.85,.2*e,sw*.9,G3);trim(9+t*.5,13+t,yt+.2*e,sw);
+  for(const sg of [-1,1])box(M,xs+sl*.1,ys+4.2*e,sg*(sw/2+1.6*e),sl*.3,.25*e,3.2*e,G3);                        // sail planes
+  for(const dz of [-.5,0,.5])cylY(M,xs-sl*.15+dz*sl*.4,yt+.2*e,dz*.3,.18*e,2.4*e+Math.abs(dz)*1.5,5,dark);       // periscopes and masts
+  const xr=X(-47),yr=Y(xr);box(M,xr,yr,0,X(5)-X(0),5*e,.35*e,G2);box(M,xr,yr-6*e,0,X(5)-X(0),5*e,.35*e,G2);      // upper and lower rudder
+  for(const sg of [-1,1])box(M,xr,yr-.3*e,sg*(bAt(xr)+2.2*e),X(4)-X(0),.3*e,4.4*e,G2);                         // stern planes
+  for(const sg of [-1,1])box(M,X(36),Y(X(36))-.8*e,sg*(bAt(X(36))+1.2*e),X(3)-X(0),.28*e,2.6*e,G2);              // bow planes
+  box(M,X(0),Y(X(0))+.02,0,X(70)-X(0),.06*e,Math.max(1.6,bAt(X(0))*.35),G3);                                       // the walking deck
+  edgeGlow();return;}
+ const xc=X(r==='D'?8:r==='I'?10:4),w=bAt(xc)*1.5,y0=Y(xc);
+ if(r==='I'){                                                     // ---- interceptor: one sleek block, a pyramid mast, an aft hangar
+  const y1=blk(0,20,y0,lv*1.4,w*.82),y2=blk(4,17,y1,lv*1.2,w*.62,{col:G2,win:.6});_spyBlock(K,4.4,16.5,y1,lv*1.2,w*.6,[1,-1]);
+  const ym=pyr(10,y2,w*.36,10*e);radar(10,ym,0,4.5*e,1.6*e,1.4,0);
+  blk(-22,-8,Y(X(-15)),lv*1.3,bAt(X(-15))*1.3,{col:G2});helipad(X(-36),0,Math.min(bAt(X(-36))*.7,7*e),Y(X(-36)));K.wac('h',X(-36),Y(X(-36)),0,Math.PI,13*e,[.2,.22,.26]);
+  for(const sg of [-1,1]){ciws(X(19),y1,sg*w*.3,0);ciws(X(-20),Y(X(-20))+lv*1.3,sg*bAt(X(-20))*.45,Math.PI);}}
+ else if(r==='D'){                                                // ---- destroyer: low and angular, one block, torpedo mounts amidships
+  const y1=blk(-4,18,y0,lv*1.25,w*.8),y2=blk(2,16,y1,lv*1.15,w*.6,{col:G2,win:.6});_spyBlock(K,2.4,15.5,y1,lv*1.15,w*.58,[1,-1]);
+  const ym=pyr(9,y2,w*.34,8*e+t*.8);radar(9,ym,0,4*e+t*.4,1.5*e,1.5,0);
+  fun(-6,y1,3.4*e,2.6*e,6*e,{col:G3,band:CY,cap:.18,tp:.86});
+  for(const sg of [-1,1])tubesC(X(-14),Y(X(-14)),sg*bAt(X(-14))*.45,sg*Math.PI/2,4);
+  if(D.aa)for(const xp of [20,-2,-20])for(const sg of [-1,1]){const x=X(xp),z=sg*bAt(x)*.6;if(clear(x,z,3.6*e))aaH(x,Y(x),z,sg*-1.2,2,1);}
+  for(const sg of [-1,1])ciws(X(17),y1,sg*w*.32,0);}
+ else if(r==='C'){                                                // ---- cruiser: two islands, each with its own arrays and mast
+  const y1=blk(-2,20,y0,lv*1.35,w*.85),y2=blk(3,17,y1,lv*1.25,w*.64,{col:G2,win:.6});_spyBlock(K,3.4,16.5,y1,lv*1.25,w*.62,[1,-1]);
+  const ym=pyr(10,y2,w*.36,11*e);radar(10,ym,0,5*e,1.8*e,1.3,0);dome(14,y2,0,1.8*e);
+  const xa=X(-18),ya=blk(-25,-11,Y(xa),lv*1.3,bAt(xa)*1.35,{col:G2});_spyBlock(K,-24.5,-11.5,Y(xa),lv*1.3,bAt(xa)*1.3,[-1]);
+  const ym2=pyr(-18,ya,bAt(xa)*.5,7*e,G3);radar(-18,ym2,0,4*e,1.4*e,1.8,1);
+  fun(-4,y1,4*e,3*e,8*e,{col:G3,band:CY,cap:.16,tp:.88,z:0});
+  for(const xp of [21,-26])for(const sg of [-1,1])aa4(X(xp),Y(X(xp)),sg*bAt(X(xp))*.62,(xp>0?0:Math.PI)+sg*-.6);}
+ else{                                                            // ---- battleship: a tall stepped citadel, a second tower aft
+  const big=t>=6,y1=blk(-12,20,y0,lv*1.4,w),y2=blk(-7,17,y1,lv*1.3,w*.78,{col:G2}),y3=blk(-2,14,y2,lv*1.25,w*.6,{win:.55});
+  _spyBlock(K,-1.6,13.5,y2,lv*1.25,w*.58,[1,-1]);
+  let yt=y3;for(let k=0;k<3+(big?2:0);k++)yt=blk(1+k*.6,11.5-k*.6,yt,lv*1.15,w*.42*(1-k*.08),{col:k%2?G3:G2,win:k===2?.7:.3});
+  const ym=pyr(6,yt,w*.3,14*e+(big?6*e:0));radar(6,ym,0,6.5*e,2.2*e,1.2,0);dome(10,yt,0,2.4*e);dirc(14.5,y3,0,1.7);
+  for(const sg of [-1,1])fun(-10,y2,3.6*e,3.2*e,12*e,{z:sg*w*.17,col:G3,band:CY,cap:.12,tp:.92});
+  for(const xp of [18,12,6,0,-6])for(const sg of [-1,1]){const x=X(xp),z=sg*(w*.5-2.4*e);if(clear(x,z,3*e))aaH(x,y1,z,sg*-1.3,2,1.1);}
+  for(const xp of [44,38,-44])for(const sg of [-1,1]){const x=X(xp),z=sg*bAt(x)*.6;if(clear(x,z,3.6*e))aa4(x,Y(x),z,(xp>0?0:Math.PI)+sg*-.6);}
+  if(D.air){const fx=X(-38),fy=Y(fx);box(M,fx,fy,0,X(16)-X(0),.4*e,bAt(fx)*1.7,[.16,.17,.19]);helipad(fx,0,Math.min(bAt(fx)*.7,10*e),fy+.4*e);
+   for(const sg of [-1,1])K.wac('j',X(-34),fy+.4*e,sg*bAt(fx)*.4,sg>0?2.6:-2.6,17*e,[.18,.2,.24]);K.wac('h',X(-43),fy+.4*e,0,Math.PI,15*e,[.18,.2,.24]);}
+  if(D.lm)for(const sg of [-1,1])vlsF(30,40,bAt(X(35))*.5,Y(X(35)),sg*bAt(X(35))*.45);}
+ _edgeAA(K,-48,46,3.4,1.5);
+ edgeGlow();
  fit({rail:[-49,48]});
 }
 // ================= v5.8 TT2 BID-B3M: the missile battleship from Jackson's drawing =================
@@ -8198,10 +8274,38 @@ function tt2Dress(M,spec){
   for(let i=0;i<n;i++){const y=P[i*3+1];if(y<.4||!side(i))continue;const k=Math.floor((P[i*3]-x0)/B);if(Math.abs(P[i*3+2])>=zb[k]-.12&&y>yb[k])yb[k]=y;}
   for(let i=0;i<n;i++){const y=P[i*3+1];if(y<.4||!side(i))continue;const k=Math.floor((P[i*3]-x0)/B);if(Math.abs(P[i*3+2])>=zb[k]-.12&&zb[k]>zm*.5&&y>yb[k]-.9)glow(i);}}   // a thin band along the top of the hull sides only
  else if(spec.type==='tank'){const h=Math.max(.25,(y1-y0)*.1);for(let i=0;i<n;i++)if(P[i*3+1]<y0+h)glow(i);}
- else{const L=x1-x0;for(let i=0;i<n;i++){const x=P[i*3],z=Math.abs(P[i*3+2]);if(x<x0+L*.05||z>zm*.94)glow(i);}}
+ else{const L=x1-x0;for(let i=0;i<n;i++){const k=i*4;if(C[k+3]<6.5){const l=C[k]*.3+C[k+1]*.59+C[k+2]*.11;C[k]=.13+l*.55;C[k+1]=.14+l*.6;C[k+2]=.17+l*.7;}const x=P[i*3],z=Math.abs(P[i*3+2]);if(x<x0+L*.05||z>zm*.94)glow(i);}}   // TT2 graphite, glowing engines and wingtips
  return M;
 }
-for(const t of ['ship','tank','plane']){const f=MESHES[t];MESHES[t]=spec=>tt2Dress(f(spec),spec);}
+// v5.9 TT2 hover tanks: the base tank's upper hull, turret and gun stay (they aim and fire); everything below the hull top - tracks, road
+// wheels, skirts - is replaced by a hover body: an armoured wedge on four thruster pods with a glowing skirt, plus the kit its role calls for
+// (from the name: R railgun, M missile pods, S shield emitter, D drone deck, H energy AA cannons).
+function hoverTank(M,spec){
+ if(!spec||!spec.tt2||spec.type!=='tank'||!M||!M.P)return M;
+ const P=M.P,n=P.length/3;let x0=1e9,x1=-1e9,y0=1e9,y1=-1e9,zm=0;
+ for(let i=0;i<n;i++){if(M.G[i])continue;const x=P[i*3],y=P[i*3+1],z=Math.abs(P[i*3+2]);if(x<x0)x0=x;if(x>x1)x1=x;if(y<y0)y0=y;if(y>y1)y1=y;if(z>zm)zm=z;}   // the rigid hull only: a long gun must not stretch the body
+ for(let i=0;i<n;i++){const k=i*4;if(M.C[k+3]>6.5)continue;const l=(M.C[k]*.3+M.C[k+1]*.59+M.C[k+2]*.11);M.C[k]=.12+l*.55;M.C[k+1]=.13+l*.6;M.C[k+2]=.15+l*.7;}   // TT2 graphite over the old camouflage
+ const tur=M.parts.find(d=>d.kind==='turret'),ty=tur?tur.pivot[1]:y0+(y1-y0)*.45,cut=y0+(ty-y0)*.62;
+ const moving=new Set(M.parts.map((d,i)=>d.kind==='wheel'||d.kind==='tread'?i+1:0).filter(Boolean));
+ // drop every triangle of the running gear: wheel and track groups, and anything that sits wholly below the cut
+ const keep=[];for(let t=0;t<n;t+=3){const g=M.G[t];const low=Math.max(P[t*3+1],P[t*3+4],P[t*3+7])<cut;if(!moving.has(g)&&!low)keep.push(t);}
+ const nP=[],nN=[],nC=[],nG=[];for(const t of keep)for(let k=0;k<3;k++){const v=t+k;nP.push(P[v*3],P[v*3+1],P[v*3+2]);nN.push(M.N[v*3],M.N[v*3+1],M.N[v*3+2]);nC.push(M.C[v*4],M.C[v*4+1],M.C[v*4+2],M.C[v*4+3]);nG.push(M.G[v]);}
+ M.P=nP;M.N=nN;M.C=nC;M.G=nG;M.grp=0;
+ const L=x1-x0,W=zm*2,xm=(x0+x1)/2,H=cut-y0,top=[.22,.24,.27],dk=[.13,.14,.16],CY=[.3,.95,1.],role=(String(spec.tt2).split('-')[1]||'').replace(/^[A-Z]\d/,'')+String(spec.tt2).split('-')[0];
+ const yb=y0+H*.35;                                                          // the hover body floats: its belly is a third of the way up
+ box(M,xm-L*.04,yb,0,L*.86,cut-yb+.15,W*.96,top);                             // the armoured body, up to the hull it carries
+ wedge(M,x1-L*.09,yb,0,L*.16,cut-yb+.15,W*.9,-L*.1,top);                       // a sloped glacis at the nose
+ box(M,xm,yb-.12,0,L*.9,.14,W*.9,CY,7);                                        // the glowing skirt
+ for(const sx of [-1,1])for(const sz of [-1,1]){const px=xm+sx*L*.36,pz=sz*W*.5;cylY(M,px,yb-.25,pz,W*.13,cut-yb,12,dk);cylY(M,px,yb-.32,pz,W*.11,.1,12,CY,7);}   // thruster pods
+ for(const sz of [-1,1])box(M,xm-L*.05,cut-H*.15,sz*W*.49,L*.7,H*.3,.12,dk);   // armour fins along the sides
+ const deckY=cut+.1,rx=x0+L*.2;
+ if(/M/.test(role))for(const sz of [-1,1]){box(M,rx,deckY,sz*W*.36,L*.22,H*.45,W*.16,dk);for(let i=0;i<3;i++)for(let j=0;j<2;j++)box(M,rx-L*.06+i*L*.06,deckY+H*.45,sz*W*.36+(j-.5)*W*.07,L*.04,.03,W*.05,[.05,.05,.06]);}   // missile pods
+ if(/S/.test(role)){cylY(M,rx,deckY,0,W*.12,H*.3,14,dk);cylY(M,rx,deckY+H*.3,0,W*.14,H*.12,14,CY,7,W*.06);}   // shield emitter
+ if(/D/.test(role)){box(M,rx,deckY,0,L*.26,.12,W*.6,[.16,.17,.19]);for(const sz of [-1,1]){const dx=rx,dz=sz*W*.15;box(M,dx,deckY+.12,dz,L*.06,.12,L*.06,dk);for(const a of [[1,1],[1,-1],[-1,1],[-1,-1]])cylY(M,dx+a[0]*L*.04,deckY+.2,dz+a[1]*L*.04,L*.025,.03,8,[.1,.1,.11]);}}   // drone deck with two drones
+ if(/H/.test(role))for(const sz of [-1,1]){box(M,rx+L*.05,deckY,sz*W*.42,L*.1,H*.35,W*.1,dk);cyl(M,[rx+L*.05,deckY+H*.3,sz*W*.42],[rx+L*.3,deckY+H*.75,sz*W*.42],W*.03,W*.025,8,dk);cyl(M,[rx+L*.28,deckY+H*.72,sz*W*.42],[rx+L*.32,deckY+H*.8,sz*W*.42],W*.04,W*.04,8,CY,7);}   // energy AA cannons
+ return M;
+}
+for(const t of ['ship','tank','plane']){const f=MESHES[t];MESHES[t]=spec=>tt2Dress(t==='tank'?hoverTank(f(spec),spec):f(spec),spec);}
 const vehicleStats=spec=>STATS[spec.type](spec);
 const vehicleMesh=spec=>MESHES[spec.type](spec);
 
@@ -13655,19 +13759,19 @@ const TREE={
 // Each entry: id, tier, base design (its model and its T-ability), role, leads to.
 const TT2_COST=[30000,4000,10000,25000,60000,140000],TT2_T7={sea:'S7',land:'L7',air:'A7'};
 const TT2_DEF={
- sea:[['LMB-I1C',1,'S3b','Interceptor cruiser - fast, with long-range missiles and a TT2 radar suite',['FSE-S2M','TTS-C2T']],
-  ['FSE-S2M',2,'S5a','Missile submarine - low and stealthy (it runs surfaced until diving arrives)',['SOD-S3TM','BID-B3M']],
-  ['TTS-C2T',2,'S4b','Torpedo cruiser - batteries of heavy torpedoes that flood what they hit',['BID-B3M','FDH-D3T']],
-  ['SOD-S3TM',3,'S5a','Attack submarine with torpedoes and missiles',['LBS-S4LM','ESO-S4T']],
+ sea:[['LMB-I1C',1,'S3b','Interceptor cruiser - fast, with long-range missiles and a TT2 radar suite',['FSE-S2M','TTS-C2T'],{second:2},'T2I1'],
+  ['FSE-S2M',2,'S5a','Missile submarine - dives with SPACE',['SOD-S3TM','BID-B3M'],{second:2},'T2S2'],
+  ['TTS-C2T',2,'S4b','Torpedo cruiser - batteries of heavy torpedoes that flood what they hit',['BID-B3M','FDH-D3T'],{second:4},'T2C2'],
+  ['SOD-S3TM',3,'S5a','Attack submarine with torpedoes and missiles',['LBS-S4LM','ESO-S4T'],{second:4},'T2S3'],
   ['BID-B3M',3,'S6c','Missile battleship from the drawing - two triple 300 mm turrets, 15 cm and 5" guns, missile cells and 20/35/45 mm AA everywhere',['LBO-B4A','ACI-A4H'],{second:2},'T2B'],
-  ['FDH-D3T',3,'S2c','Torpedo destroyer',['DOD-D4TM','CAO-C4B']],
-  ['LBS-S4LM',4,'S5a','Long-range missile submarine',['VPR-S5TM']],['ESO-S4T',4,'S5a','Torpedo submarine',['VPR-S5TM']],
-  ['LBO-B4A',4,'S5d','Battleship with its own air group',['NOV-B5LM']],['ACI-A4H',4,'S6b','Hurricane-class carrier',['ARC-A5H']],
-  ['DOD-D4TM',4,'S6d','Torpedo and missile destroyer',['HLX-D5M']],['CAO-C4B',4,'S6a','Cruiser with a battleship broadside',['NOV-B5LM']],
+  ['FDH-D3T',3,'S2c','Torpedo destroyer',['DOD-D4TM','CAO-C4B'],{second:4},'T2D3'],
+  ['LBS-S4LM',4,'S5a','Long-range missile submarine',['VPR-S5TM'],{second:2},'T2S4L'],['ESO-S4T',4,'S5a','Torpedo submarine',['VPR-S5TM'],{second:4},'T2S4T'],
+  ['LBO-B4A',4,'S5d','Battleship with its own air group',['NOV-B5LM'],{second:2},'T2B4A'],['ACI-A4H',4,'S6b','Hurricane-class carrier',['ARC-A5H']],
+  ['DOD-D4TM',4,'S6d','Torpedo and missile destroyer',['HLX-D5M'],{second:2},'T2D4'],['CAO-C4B',4,'S6a','Cruiser with a battleship broadside',['NOV-B5LM'],{second:2},'T2C4'],
   // tiers 5-6 (v5.8, added to finish the tree - rename freely)
-  ['NOV-B5LM',5,'S6c','Long-range missile battleship',['LEV-B6M']],['ARC-A5H',5,'S6b','Hurricane supercarrier with a full TT2 air wing',['LEV-B6M']],
-  ['HLX-D5M',5,'S6d','Missile destroyer with a phased-array AA net',['LEV-B6M']],['VPR-S5TM',5,'S5a','Hunter-killer submarine',['ABY-S6LM']],
-  ['LEV-B6M',6,'S7','TT2 flagship - battleship, carrier and missile ship in one hull',[]],['ABY-S6LM',6,'S5a','Deep strike submarine with long-range missiles',[]]],
+  ['NOV-B5LM',5,'S6c','Long-range missile battleship',['LEV-B6M'],{second:2},'T2B5'],['ARC-A5H',5,'S6b','Hurricane supercarrier with a full TT2 air wing',['LEV-B6M']],
+  ['HLX-D5M',5,'S6d','Missile destroyer with a phased-array AA net',['LEV-B6M'],{second:2},'T2D5'],['VPR-S5TM',5,'S5a','Hunter-killer submarine',['ABY-S6LM'],{second:4},'T2S5'],
+  ['LEV-B6M',6,'S7','TT2 flagship - battleship, carrier and missile ship in one hull',[],{second:2},'T2B6'],['ABY-S6LM',6,'S5a','Deep strike submarine with long-range missiles',[],{second:2},'T2S6']],
  air:[['ZAR',1,'A5a','TT2 fighter',['KAM-I4','XOL-44E']],['EVE-FLY-1',1,'A4b','TT2 attack aircraft',['XOL-44E','BRT-T1A']],
   ['KAM-I4',2,'A6a','Interceptor',['HEL-H3A','SAL-H4I']],['XOL-44E',2,'A5b','Gunship',['SPFY-M4F']],['BRT-T1A',2,'A4c','Attack bomber',['CA-CST']],
   ['SPFY-M4F',3,'A6a','Mixed fighter',['STR-F4M']],['CA-CST',3,'A6b','Command stealth bomber',['NGT-C4B']],
