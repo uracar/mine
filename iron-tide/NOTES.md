@@ -84,7 +84,7 @@ along both sides, a central superstructure block with two stacks, a tall stepped
 ## Other notes (2026-11-19)
 - **(?) "Hank/Hangar" should be connected to Netlify but not have everything unlocked.** ❓
 - **More weapons to choose from when customizing.** ⬜
-- **The AI should be treated as a real player, not as a separate thing.** ⬜
+- **The AI should be treated as a real player, not as a separate thing.** 🔨 v6.2 AI warships sail real Service Tree ships (within a tier of yours, TT2 when you are in TT2) with that ship's model, health, size and speed, labelled 'AI · <ship name>'. Next: AI tanks and planes the same way.
 
 ## Nations
 - Nation tech trees: US, Germany, USSR, UK, Japan — each with unique vehicles.

@@ -2167,7 +2167,7 @@ function renderOps(){
 window.__contracts={get contract(){return contract;},conOffers,conAccept,conClear,contractStep,contractDock,conComplete,get done(){return conDone;}};
 
 // ---------- the game around the world: home screen, HUD, pause and settings, fuel and hull, harbours and the port screen, saving ----------
-const GAME_TITLE='IRON TIDE',GAME_VERSION='v6.1';
+const GAME_TITLE='IRON TIDE',GAME_VERSION='v6.2';
 try{document.getElementById('load').textContent='LOADING WORLD… '+GAME_VERSION;}catch(e){}
 const SAVE_KEY='irontide.save.v1';
 const BURN_IDLE=.00004,BURN_AHEAD=.00048;                 // fuel (0..1) per second; flank speed burns 2.5 times the ahead rate
@@ -3168,6 +3168,7 @@ window.addEventListener('pagehide',()=>{if(NET.on)try{fetch(API+'/sync',{method:
 function acctSignedIn(name){
  cloud.server=true;cloud.ok=true;cloud.ro=false;cloud.uid=name;
  cloud.status='Logged in as '+name+' - your pilot saves online.';
+ if(String(name).toLowerCase()==='jimbo'&&!OWNER)setTimeout(()=>{try{ownerReady();}catch(e){}},300);   // v6.2 the owner's account: full access (every unlock, the War Room OWNER tab)
  if(String(name).toLowerCase()==='jimbo')setTimeout(()=>{if(cloud.uid!==name||career.jimboGrant)return;career.jimboGrant=1;career.credits=(career.credits||0)+1000000;careerSave();try{serverPush(true).catch(()=>{});}catch(e){}toast('Test account: 1,000,000 credits added.',6000);},3000);   // the owner's test account, granted once
  acctChip();
  acctRoster();renderPilot();acctRender();
@@ -8337,11 +8338,38 @@ const FOE_KIND=[
  {sc:[1,1.25], hp:1050,speed:13.5,fire:[5,8],ammo:2,turn:.12},    // Dominion destroyer
  {sc:[.62,.8], hp:520,speed:16,  fire:[3.6,5.5],ammo:1,turn:.17}  // Syndicate raider
 ];
+// ---------- v6.2 AI ships are players in tech-tree ships ----------
+// Every AI warship is crewed like a player's: it sails a real Service Tree ship (TT2 when you are in TT2), within a tier of yours, drawn
+// with that ship's own model and carrying that ship's health, size and speed. One instanced kind is made per ship design the first time it
+// appears (moving parts frozen, muzzle flashes left out).
+const FOE_SHIP_KIND=new Map();
+function foeShipKind(id){
+ let k=FOE_SHIP_KIND.get(id);if(k!==undefined)return k;
+ try{
+  const spec=nodeSpec(NODE.get(id)),M=MESHES.ship(spec),F=mesh();
+  const drop=new Set(M.parts.map((d,i)=>d.kind==='flash'||d.kind==='ab'?i+1:0).filter(Boolean));
+  for(let v=0;v<M.G.length;v+=3){if(drop.has(M.G[v]))continue;for(let q=v;q<v+3;q++){F.P.push(M.P[q*3],M.P[q*3+1],M.P[q*3+2]);F.N.push(M.N[q*3],M.N[q*3+1],M.N[q*3+2]);F.C.push(M.C[q*4],M.C[q*4+1],M.C[q*4+2],M.C[q*4+3]);F.G.push(0);}}
+  const k0=unitList.length;unitList.push([]);k=addUnitKind(F);
+  if(k!==k0){FOE_SHIP_KIND.set(id,null);return null;}
+  UNIT_DRAW_R[k]=UNIT_DRAW_R[UNIT.ENEMY];unitFlags[k]={rad:Math.max(130,vehicleStats(spec).length*.6),roll:1,det:1,lod:-1,lodD:0};
+  extraDrawKinds.push(k);if(solidKinds)solidKinds.splice(solidKinds.length-lodKinds.length,0,k);
+ }catch(e){k=null;}
+ FOE_SHIP_KIND.set(id,k);return k;
+}
+function foeShipNode(){
+ const tt2=!!(VS&&VS.tt2),pt=vehicle?(VS&&VS.tt2&&NODE.has(VS.tt2)?NODE.get(VS.tt2).t:specTier(vehicle)):1;
+ const pool=TREE.sea.filter(n=>!!n.tt2===tt2&&Math.abs(n.t-pt)<=1&&(n.t<7||pt>=7));
+ return pool.length?pool[Math.floor(Math.random()*pool.length)]:null;
+}
 function addFoe(x,z,hd,fid){
  if(fid===undefined)fid=2;
  const K=FOE_KIND[fid],F=FACTIONS[fid],sc=K.sc[0]+Math.random()*(K.sc[1]-K.sc[0]),hp=(K.hp+Math.random()*300)*2.5*(F.rel<0?(1+game.kills*.08)*ladFoe().hp:1);
  foes.push({id:foeSeq++,x,y:.5,z,hd,v:0,scale:sc,hp,hp0:hp,L:FOE_L*sc,B:FOE_B*sc,side:Math.random()<.5?1:-1,fireT:7+Math.random()*4,dead:false,sinkT:0,fid,rel:F.rel,angry:false,K,wanderT:0,wander:0});
- return foes[foes.length-1];
+ const f=foes[foes.length-1],n=foeShipNode();
+ if(n){const kd=foeShipKind(n.id);if(kd!==null&&kd!==undefined){const st=vehicleStats(nodeSpec(n));
+  f.kind=kd;f.node=n.id;f.vname=n.name;f.L=st.length;f.B=st.beam;f.scale=f.L/FOE_L;
+  f.hp=f.hp0=st.hp*HP_PER*(F.rel<0?ladFoe().hp:1);f.K={...K,speed:Math.max(8,Math.min(st.cruise*.85,K.speed*2.2))};f.fp=st.firepower;}}
+ return f;
 }
 const foeHostile=f=>facRel(FACTIONS[f.fid])<0||f.angry;
 function provoke(f){
@@ -8513,7 +8541,7 @@ function emitFoes(){
  for(const f of foes){
   if(Math.hypot(f.x-cam.x,f.z-cam.z)>UNIT_DRAW_R[UNIT.ENEMY])continue;
   const rp=ridePose(f.x,f.z,f.hd,foeNow,f.L),sk=f.sinkT;if(!f.dead)foeSpray(f);
-  const fl=f.hp0?Math.pow(clamp(1-f.hp/f.hp0,0,1),1.5):0;emit(UNIT.ENEMY,f.x,f.y+rp.y-sk*sk*.3-fl*f.L*.012,f.z,f.hd,rp.pitch+Math.min(.55,sk*.05)-fl*.02,rp.roll+Math.min(.95,sk*.09)+fl*.07*(f.side||1),f.fid+1,f.scale);
+  const fl=f.hp0?Math.pow(clamp(1-f.hp/f.hp0,0,1),1.5):0;emit(f.kind??UNIT.ENEMY,f.x,f.y+rp.y-sk*sk*.3-fl*f.L*.012,f.z,f.hd,rp.pitch+Math.min(.55,sk*.05)-fl*.02,rp.roll+Math.min(.95,sk*.09)+fl*.07*(f.side||1),f.fid+1,f.kind!=null?1:f.scale);
  }
 }
 window.__foe=(dx,dz)=>{addFoe(player.x+dx,player.z+dz,headingOf(-dx,-dz));return foes[foes.length-1];};
@@ -11987,7 +12015,7 @@ function collectContacts(){
  if(!on)return;
  const R=6000,px=player.x,pz=player.z;
  const add=(x,y,z,fid,label,hp,size,L,hd)=>{const d=Math.hypot(x-px,z-pz);if(d<R&&d>8)contacts.push({x,y,z,fid,label,hp,d,size,r:L?Math.max(3,size*.12):Math.max(2.5,size*.33),L,hd});};
- for(const f of foes)if(!f.dead&&foeHostile(f))add(f.x,f.y+9*f.scale,f.z,f.fid,f.bot?'AI '+f.bot.cs:'WARSHIP',f.hp/f.hp0,60*f.scale,f.L,f.hd);
+ for(const f of foes)if(!f.dead&&foeHostile(f))add(f.x,f.y+9*f.scale,f.z,f.fid,(f.bot?'AI '+f.bot.cs:'AI')+(f.vname?' · '+f.vname.toUpperCase():' · WARSHIP'),f.hp/f.hp0,60*f.scale,f.L,f.hd);
  for(const e of units){if(!e.ai||e.dead||!aiHostile(e))continue;
   const k=e.kind===UNIT.TANKAI?['TANK',3,9]:e.kind===UNIT.PLANEAI?['FIGHTER',1,12]:e.kind===UNIT.BOATAI?['GUNBOAT',3,14]:['HOSTILE',2,8];
   add(e.x,e.y+k[1],e.z,e.fid??2,k[0],hpFrac(e,e.hp0||UNIT_HP[e.kind]),k[2]);}
