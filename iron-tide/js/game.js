@@ -4100,7 +4100,7 @@ function stepTank(dt){
  tankPose(e,dt);
 }
 // ---------- flying a plane ----------
-// Up / Down arrows set the throttle, S pulls the nose up and W pushes it down, A / D bank (the turn follows the bank), Shift lights the afterburner, X brakes.
+// W / S (or Up / Down) set the throttle, the mouse flies the nose to the aim ring, A / D nudge the turn, Shift lights the afterburner, X brakes.
 // Below the stall speed the nose drops and the plane sinks. It takes off by itself once it is rolling fast enough; wings-level, gentle touchdowns are safe.
 const GRAV=9.81;
 function groundY(x,z){return Math.max(T.height(x,z),0);}
@@ -4378,7 +4378,12 @@ const aimRing=document.createElement('div'),noseDot=document.createElement('div'
 aimRing.style.cssText='position:absolute;left:0;top:0;width:34px;height:34px;margin:-17px 0 0 -17px;border:2px solid rgba(255,200,110,.9);border-radius:50%;display:none;box-shadow:0 0 8px rgba(0,0,0,.6);pointer-events:none';
 aimRing.innerHTML='<i style="position:absolute;left:50%;top:50%;width:4px;height:4px;margin:-2px;background:#ffc86e;border-radius:50%"></i>';
 noseDot.style.cssText='position:absolute;left:0;top:0;width:10px;height:10px;margin:-5px 0 0 -5px;border:1.5px solid rgba(255,255,255,.85);border-radius:50%;display:none;pointer-events:none';
-document.getElementById('ui').append(aimRing,noseDot);
+// v5.4 the lead marker: where to put the guns so the bullets meet the enemy the nose is closest to (aircraft, ships and tanks within 2.5 km)
+const leadMk=document.createElement('div');
+leadMk.style.cssText='position:absolute;left:0;top:0;width:22px;height:22px;margin:-11px 0 0 -11px;border:2px solid #ff5d4d;transform:rotate(45deg);display:none;pointer-events:none;box-shadow:0 0 6px rgba(0,0,0,.7)';
+const leadLine=document.createElement('div');leadLine.style.cssText='position:absolute;left:0;top:0;height:1px;background:rgba(255,93,77,.55);transform-origin:0 50%;display:none;pointer-events:none';
+const leadTag=document.createElement('div');leadTag.style.cssText='position:absolute;left:0;top:0;font:600 11px/1 inherit;font-family:inherit;letter-spacing:.12em;color:#ff8a7d;text-shadow:0 1px 3px #000;display:none;pointer-events:none';
+document.getElementById('ui').append(aimRing,noseDot,leadLine,leadMk,leadTag);
 const planeFlying=()=>camMode==='ship'&&player&&VS&&VS.type==='plane'&&game.state==='playing';
 function planeAimMove(dx,dy){
  planeAim.yaw-=dx*.0038;planeAim.pitch=clamp(planeAim.pitch-dy*.0038,-1.15,1.15);
@@ -4394,7 +4399,20 @@ function planeAutopilot(e,dt){
 }
 function updatePlaneAim(){
  const on=planeFlying();
- if(!on){aimRing.style.display='none';noseDot.style.display='none';return;}
+ if(!on){aimRing.style.display='none';noseDot.style.display='none';leadMk.style.display=leadLine.style.display=leadTag.style.display='none';return;}
+ {const e=player,np=Math.cos(e.pitch||0),f=[Math.cos(e.hd)*np,Math.sin(e.pitch||0),-Math.sin(e.hd)*np];let best=null,bs=-1;
+  const consider=t=>{if(!t||t.dead)return;const ty=t.y!==undefined?t.y:0,dx=t.x-e.x,dy=ty-e.y,dz=t.z-e.z,d=Math.hypot(dx,dy,dz);if(d<40||d>2500)return;
+   const c=(dx*f[0]+dy*f[1]+dz*f[2])/d;if(c>.82&&c>bs){bs=c;best=t;}};
+  for(const a of air)if(!a.wing&&playerIsFoeOf(a.fid))consider(a);
+  for(const s of foes)if(foeHostile(s))consider(s);
+  for(const k of armour)if(playerIsFoeOf(k.fid))consider(k);
+  if(best){const P=leadSolve(e.x,e.y,e.z,best,gunSpeed()+(e.v||0),0),sp=toScreen(P.x,P.y,P.z),st=toScreen(best.x,best.y!==undefined?best.y:0,best.z);
+   if(sp){leadMk.style.display='block';leadMk.style.left=sp[0]+'px';leadMk.style.top=sp[1]+'px';
+    leadTag.style.display='block';leadTag.style.left=(sp[0]+16)+'px';leadTag.style.top=(sp[1]-5)+'px';leadTag.textContent=Math.round(Math.hypot(best.x-e.x,(best.y||0)-e.y,best.z-e.z))+' M';
+    if(st){const L=Math.hypot(sp[0]-st[0],sp[1]-st[1]);leadLine.style.display=L>6?'block':'none';leadLine.style.left=st[0]+'px';leadLine.style.top=st[1]+'px';leadLine.style.width=L+'px';leadLine.style.transform='rotate('+Math.atan2(sp[1]-st[1],sp[0]-st[0])+'rad)';}
+    else leadLine.style.display='none';}
+   else leadMk.style.display=leadLine.style.display=leadTag.style.display='none';}
+  else leadMk.style.display=leadLine.style.display=leadTag.style.display='none';}
  const e=player,cp=Math.cos(planeAim.pitch),a=[Math.cos(planeAim.yaw)*cp,Math.sin(planeAim.pitch),-Math.sin(planeAim.yaw)*cp];
  const np=Math.cos(e.pitch||0),n=[Math.cos(e.hd)*np,Math.sin(e.pitch||0),-Math.sin(e.hd)*np],D=900;
  const s1=toScreen(e.x+a[0]*D,e.y+a[1]*D,e.z+a[2]*D),s2=toScreen(e.x+n[0]*D,e.y+n[1]*D,e.z+n[2]*D);
@@ -8239,6 +8257,7 @@ function stepFoes(dt,e,dead){
 }
 function updateFoes(t,dt){
  foeNow=t;
+ for(const f of foes)if(f.flood>0&&!f.dead&&dt>0){const d=Math.min(f.flood,(25+f.flood*.06)*dt);f.flood-=d;f.hp-=d;if(f.v)f.v*=Math.pow(.6,dt);if(f.hp<=0)killFoe(f);}   // v5.4 flooding
  const play=game.state==='playing'&&VS.type==='ship';
  if(!play){
   // ships keep fighting each other while you are in a tank or a plane; they are only cleared away in the menus
@@ -9317,6 +9336,10 @@ function areaDamage(x,y,z,r,dmg){
 }
 function explode(p,x,y,z,land){
  const size=p.rad*(p.kind==='torp'?1.2:1.15);
+ // v5.4 a round, rocket or missile that bursts on your own vehicle shows as a short, small flash on the armour - not a fireball filling the screen
+ if(player&&VS&&!p.mine&&(p.pl!==true)&&Math.hypot(x-player.x,y-(player.y||0),z-player.z)<Math.max(8,(VS.length||10)*.6)+4){
+  shellFx.push({kind:'blast',x,y,z,age:0,life:.2,size:Math.min(4.5,size*.18)},{kind:'smoke',x,y,z,age:.05,life:1.6,size:Math.min(6,size*.25)});
+  hitFlash=Math.max(hitFlash,.4);areaDamage(x,y,z,p.rad,p.dmg);camShake(Math.min(.35,.06+p.dmg*.002));return;}
  if(land&&typeof worldImpact==='function')worldImpact(x,y,z,size,p.dmg,p.vx,p.vy,p.vz,true);
  if(land){shellFx.push({kind:'blast',x,y:Math.max(y,0)+1,z,age:0,life:.8,size},{kind:'dust',x,y:Math.max(y,0),z,age:0,life:2.4,size:size*.9},{kind:'smoke',x,y:Math.max(y,0),z,age:.15,life:5,size});}
  else if(y>1){shellFx.push({kind:'blast',x,y,z,age:0,life:.8,size},{kind:'smoke',x,y,z,age:.1,life:3.5,size:size*.7});}
@@ -9385,7 +9408,11 @@ function updateProj(dt){
    if(p.kind==='torp'){
     p.y=-1.3;
     const f=foeAt(p.x,-1,p.z);
-    if(f||proxBoat(p.x,p.z)||trafficProx(p.x,p.z)){explode(p,p.x,0,p.z,false);gone=true;}
+    if(f||proxBoat(p.x,p.z)||trafficProx(p.x,p.z)){
+     // v5.4 a torpedo hits below the waterline: heavy damage on the hull it struck, then flooding that keeps eating at it and slows it down
+     if(f&&!f.dead&&f.hp!==undefined){provoke(f);f.hp-=p.dmg*1.6;f.flood=(f.flood||0)+p.dmg*.9;
+      shellFx.push({kind:'splash',x:p.x,y:0,z:p.z,age:0,life:3,size:p.rad*1.6});toast('Torpedo hit - she is flooding',1600);if(f.hp<=0)killFoe(f);}
+     explode(p,p.x,0,p.z,false);gone=true;}
     else if(gh>-1.8){explode({...p,rad:p.rad*.5,dmg:p.dmg*.2},p.x,Math.max(gh,0),p.z,gh>.3);gone=true;}
     continue;
    }
@@ -12761,7 +12788,7 @@ function mmoRoom(room){
  },()=>{});
  room.on('hit',m=>{const d=m.data||{};if(m.isMe||d.to!==MMO.peer||!player||game.state!=='playing')return;
   const r=MMO.remotes.get(m.peer);if(!r||sameBloc(r.fid,PF))return;
-  const dmg=Math.min(400,Math.max(0,+d.dmg||0))*(1-.07*upLvl('armour'));game.hull=Math.max(0,game.hull-dmg/(1300*VS.hp));hitFlash=1;camShake(.3);
+  const dmg=Math.min(400,Math.max(0,+d.dmg||0))*(1-.07*upLvl('armour'));game.hull=Math.max(0,game.hull-dmg/(1300*VS.hp));hitFlash=Math.max(hitFlash,.45);camShake(.2);
   MMO.hitBy={peer:m.peer,cs:r.cs,t:performance.now()};
   if(game.hull<=0&&!MMO.killSent){MMO.killSent=true;room.emit('kill',{to:m.peer,cs:profile?profile.callsign:'?',vt:VS.type}).catch(()=>{});toast('Destroyed by '+r.cs+'. Press R for a tug.',5000);}
  },()=>{});

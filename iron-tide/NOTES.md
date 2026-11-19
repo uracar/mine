@@ -42,16 +42,16 @@ remembers why it started. They just keep fighting.
 | | Custom battles: choose map, nations, vehicles | ⬜ |
 | | AI difficulty settings (easy → extreme) | ⬜ |
 | | **Events — Kraken boss fight** anyone can join. Killing it unlocks a new LIMITED fuel that adds speed; the nation that does the most damage gets the technology (access) to gather that fuel | ⬜ |
-| | Planes: W = more throttle, S = less throttle | ⬜ |
+| | Planes: W = more throttle, S = less throttle | ✅ (already in the game; help text fixed) |
 | | Planes must fly smooth, with no lag — more than boats or tanks | ⬜ |
-| | Show where to shoot (aim indicator / lead marker) | ⬜ |
+| | Show where to shoot (aim indicator / lead marker) | ✅ v5.5 planes: red lead diamond + range on the enemy nearest your nose (air, ships, tanks, 2.5 km) |
 | | Full game + multiplayer servers (long term) | 🔨 site + shared war server exist |
 
 ## Graphics
 | | Item | Status |
 |---|---|---|
 | | Better lighting | ✅ sun shadows (v5.1) |
-| | Getting hit: a small flash, not a whole fireball | ⬜ |
+| | Getting hit: a small flash, not a whole fireball | ✅ v5.5: blasts on your own vehicle are a small flash + puff; PvP hits toned down |
 | | Dust, fire, explosions, smoke at the same quality as the water — real smoke and fire | ⬜ |
 | | Improved water | ⬜ |
 | | Detailed models | 🔨 |
@@ -68,7 +68,7 @@ remembers why it started. They just keep fighting.
 - Tree: **LMB-I1C** → **FSE-S2M**, **TTS-C2T** → **SOD-S3TM**, **BID-B3M**, **FDH-D3T** → **LBS-S7LM**, **ESO-S4T (?)**, **LBO-B4A**, **ACI-A4H (?)**, **DOD-D4TM**, **CAO-C4B (?)**.
 - Key after the dash: **I** interceptor, **D** destroyer, **B** battleship, **A** aircraft carrier, **S** sub, **C** cruiser; number = tier;
   then **M** missile, **T** torpedoes, **H** hurricane (?), **LM** long-range missile.
-- **Torpedoes need to do more damage.** ⬜
+- **Torpedoes need to do more damage.** ✅ v5.5: a hit does 1.6× its damage to the hull it strikes, then floods it (keeps draining HP and slows it)
 - Tanks don't have a TT2 identity yet ("I added fliers and subs but tanks have nothing new") — needs ideas. ⬜
 
 ## Ship drawing (page shared 2026-11-19): top and side view of a big gun ship
