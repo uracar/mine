@@ -6065,13 +6065,13 @@ function stepShip(dt){
 // ---------- driving a tank ----------
 // W / S drive and brake, A / D steer (a tank can turn on the spot), Shift is a burst of speed. Water, steep slopes and the giant trunks stop it.
 // the surface under (x,z) for something at height y: an overpass deck if it is up on one (v2.1), else the ground
-function surfY(x,z,y){const d=T.deckAt(x,z,y);return d!==null?d:T.height(x,z);}
+function surfY(x,z,y){const d=T.deckAt(x,z,y);return d!==null?d:VS&&VS.hover&&VS.type==='tank'?Math.max(T.height(x,z),0):T.height(x,z);}   // v5.7 a hover tank rides the sea surface
 function groundPose(e,dt){
  const L=VS.length,W=VS.beam,c=Math.cos(e.hd),s=-Math.sin(e.hd);
  const h=(a,b)=>surfY(e.x+c*a-s*b,e.z+s*a+c*b,e.y);
  const hF=h(L*.4,0),hB=h(-L*.4,0),hP=h(0,-W*.45),hS=h(0,W*.45);
  const k=Math.min(1,dt*10);
- e.y+=((hF+hB+hP+hS)/4+(VS.gearH||0)-e.y)*k;
+ e.y+=((hF+hB+hP+hS)/4+(VS.gearH||0)+(VS.hover?1.4+Math.sin(performance.now()/650)*.18:0)-e.y)*k;   // hover tanks float 1.4 m up, bobbing gently
  e.pitch+=(Math.atan2(hF-hB,L*.8)-e.pitch)*k;e.roll+=(Math.atan2(hP-hS,W*.9)-e.roll)*k;
 }
 function giantBlocks(x,z,r){
@@ -6081,7 +6081,7 @@ function giantBlocks(x,z,r){
 }
 function groundClear(x,z,hd,ox,oz){
  const L=VS.length,W=VS.beam,c=Math.cos(hd),s=-Math.sin(hd);
- for(const [a,b] of [[0,0],[L*.5,W*.4],[L*.5,-W*.4],[-L*.5,W*.4],[-L*.5,-W*.4]])if(T.height(x+c*a-s*b,z+s*a+c*b)<-.3)return false;
+ if(!VS.hover)for(const [a,b] of [[0,0],[L*.5,W*.4],[L*.5,-W*.4],[-L*.5,W*.4],[-L*.5,-W*.4]])if(T.height(x+c*a-s*b,z+s*a+c*b)<-.3)return false;   // hover tanks cross water
  if(giantBlocks(x,z,L*.5))return false;
  const d=Math.hypot(x-ox,z-oz);
  const dh=Math.abs(surfY(x,z,player.y)-surfY(ox,oz,player.y));return d<1e-3||dh<Math.max(.75*d,VS.type==='tank'?VS.beam*.2:0);   // v4.9 tracks climb a kerb or a step
@@ -14509,21 +14509,21 @@ function deathWatch(dt){
 }
 function deathPenalty(){
  dw.alive=0;
- const n=VS&&VS.node&&NODE.get(VS.node);if(!n||OWNER)return;
- const S=salvLoad(),d=n.dom,t=n.t,now=Date.now();
+ const n=VS&&(VS.tt2||VS.node)&&NODE.get(VS.tt2||VS.node);if(!n||OWNER)return;
+ const S=salvLoad(),d=n.dom,t=n.t,now=Date.now(),TR=TREE[d].filter(q=>!!q.tt2===!!n.tt2);
  S.deaths=S.deaths||{};const L=(S.deaths[d]=(S.deaths[d]||[]).filter(x=>now-x<3600e3));L.push(now);
  const recent=L.filter(x=>now-x<=DEATH_WIN(t)*60e3).length;
  let pick;
  if(recent>=5){
-  for(const q of TREE[d])if(q.t>1)delete S.own[q.id];
-  pick=TREE[d][0];S.deaths[d]=[];
+  for(const q of TR)if(q.t>1)delete S.own[q.id];
+  pick=TR[0];S.deaths[d]=[];
   setTimeout(()=>toast('FIVE DEATHS IN A ROW - your whole '+DOM_LABEL[d].toLowerCase()+' branch has been wiped back to tier 1.',8000),1200);
  }else{
   const keep=Math.max(1,t-2);
-  for(const q of TREE[d])if(q.t>keep)delete S.own[q.id];
+  for(const q of TR)if(q.t>keep)delete S.own[q.id];
   // fall back down the line you came up: the owned ancestor at the tier you keep
   let cur=n;while(cur&&cur.t>keep){const par=cur.parents.map(id=>NODE.get(id));cur=par.find(q=>S.own[q.id])||par[0];}
-  pick=cur&&S.own[cur.id]?cur:TREE[d].filter(q=>S.own[q.id]&&q.t<=keep).sort((a,b)=>b.t-a.t)[0]||TREE[d][0];
+  pick=cur&&S.own[cur.id]?cur:TR.filter(q=>S.own[q.id]&&q.t<=keep).sort((a,b)=>b.t-a.t)[0]||TR[0];
   const left=5-recent;
   setTimeout(()=>toast(`DESTROYED - you drop to tier ${pick.t} (${pick.name}). Lost vehicles can be bought back with salvage. ${left<=2?left+' more death'+(left>1?'s':'')+' in '+DEATH_WIN(t)+' min wipes the branch!':''}`,8000),1200);
  }
@@ -15482,7 +15482,7 @@ function salvLoad(){
  // v3.8 the Service Tree was rebuilt: old vehicles are refunded in full as banked salvage (their ids now mean different vehicles)
  if(SALV.tv!==38){let refund=0;for(const id in SALV.own){const m=/^[SLA]([1-6])/.exec(id);if(m&&+m[1]>1)refund+=[0,150,400,900,3000,9000][+m[1]-1];}
   SALV.own={};SALV.pick={};SALV.bank=(+SALV.bank||0)+refund;SALV.tv=38;SALV.refund=refund;}
- try{for(const d of ['land','sea','air'])for(const n of TREE[d])if(n.t===1)SALV.own[n.id]=1;}catch(e){SALV.own.S1b=SALV.own.S1c=1;}   // every tier 1 start is yours
+ try{for(const d of ['land','sea','air'])for(const n of TREE[d])if(n.t===1&&!n.tt2)SALV.own[n.id]=1;}catch(e){SALV.own.S1b=SALV.own.S1c=1;}   // every tier 1 start is yours
  if(SALV.wk!==salvWeek()){SALV.wk=salvWeek();SALV.sw=0;SALV.dv='----';}
  SALV.cargo=Math.max(0,+SALV.cargo||0);
  return SALV;
@@ -15557,19 +15557,53 @@ const TREE={
   {id:'A6b',t:6,name:'Revenant',role:'Flying-wing stealth bomber, modelled on the B-2 · T: CARPET BOMBING',p:{airframe:14,wings:2,engine:4,weapon:3,tail:2,canopy:3},perk:{hp:1.12},next:['A7']},
   {id:'A7',t:7,name:'Sky Fortress',role:'An 88 m flying fortress: twelve jets, two decks and a ring of gun turrets · T: SKY FORTRESS',p:{airframe:14,wings:1,engine:4,weapon:3,tail:0,canopy:2},perk:{hp:1.3}}]
 };
+// ================= v5.7 TECH TREE 2: a second, far stronger tree in every branch, opened by that branch's tier 7 =================
+// Jackson's plan: TT2 dwarfs TT1. Tier 1 is bought with banked salvage; tiers 2-6 cost TECH, which TT2 vehicles earn in full and TT1
+// vehicles hardly at all (2%) - camping in TT1 does not climb TT2. Every TT2 vehicle carries TT2 tech: more armour and firepower, faster
+// reloads, a longer radar and stronger AA. Names follow the key: name - role letter, tier, weapons (I interceptor, D destroyer,
+// B battleship, A carrier, S sub, C cruiser; M missiles, T torpedoes, H hurricane, LM long-range missiles). TT2 tanks hover.
+// Each entry: id, tier, base design (its model and its T-ability), role, leads to.
+const TT2_COST=[30000,4000,10000,25000,60000,140000],TT2_T7={sea:'S7',land:'L7',air:'A7'};
+const TT2_DEF={
+ sea:[['LMB-I1C',1,'S3b','Interceptor cruiser - fast, with long-range missiles and a TT2 radar suite',['FSE-S2M','TTS-C2T']],
+  ['FSE-S2M',2,'S5a','Missile submarine - low and stealthy (it runs surfaced until diving arrives)',['SOD-S3TM','BID-B3M']],
+  ['TTS-C2T',2,'S4b','Torpedo cruiser - batteries of heavy torpedoes that flood what they hit',['BID-B3M','FDH-D3T']],
+  ['SOD-S3TM',3,'S5a','Attack submarine with torpedoes and missiles',['LBS-S4LM','ESO-S4T']],
+  ['BID-B3M',3,'S6c','Missile battleship - 300 mm guns, 15 cm secondaries and walls of AA',['LBO-B4A','ACI-A4H']],
+  ['FDH-D3T',3,'S2c','Torpedo destroyer',['DOD-D4TM','CAO-C4B']],
+  ['LBS-S4LM',4,'S5a','Long-range missile submarine',[]],['ESO-S4T',4,'S5a','Torpedo submarine',[]],
+  ['LBO-B4A',4,'S5d','Battleship with its own air group',[]],['ACI-A4H',4,'S6b','Hurricane-class carrier',[]],
+  ['DOD-D4TM',4,'S6d','Torpedo and missile destroyer',[]],['CAO-C4B',4,'S6a','Cruiser with a battleship broadside',[]]],
+ air:[['ZAR',1,'A5a','TT2 fighter',['KAM-I4','XOL-44E']],['EVE-FLY-1',1,'A4b','TT2 attack aircraft',['XOL-44E','BRT-T1A']],
+  ['KAM-I4',2,'A6a','Interceptor',['HEL-H3A','SAL-H4I']],['XOL-44E',2,'A5b','Gunship',['SPFY-M4F']],['BRT-T1A',2,'A4c','Attack bomber',['CA-CST']],
+  ['SPFY-M4F',3,'A6a','Mixed fighter',[]],['CA-CST',3,'A6b','Command stealth bomber',[]],
+  ['HEL-H3A',3,'A5c','Heavy attack aircraft',[]],['SAL-H4I',4,'A7','Interceptor fortress',[]]],
+ land:[['VRK-T1R',1,'L4d','Hover tank with a railgun - glides over water, mud and snow',['SKR-A2M','GRD-T2S']],
+  ['SKR-A2M',2,'L5c','Fast attack hover tank with missile pods',['HXA-M3D','BLZ-A3H']],
+  ['GRD-T2S',2,'L5b','Shield hover tank - heavy armour for the squad',['BLZ-A3H','KRN-T3R']],
+  ['HXA-M3D',3,'L4c','Drone-carrier hover tank',['ORB-M4S']],['BLZ-A3H',3,'L4a','Hover AA - a rapid energy cannon',['ORB-M4S']],
+  ['KRN-T3R',3,'L4b','Heavy rail hover tank - long range, slow reload',['ORB-M4S']],
+  ['ORB-M4S',4,'L6b','Missile and shield hover tank',['VLT-T5R']],['VLT-T5R',5,'L6a','Rail hover battle tank',['BASTION-T6']],
+  ['BASTION-T6',6,'L7','Mobile hover fortress - the land flagship of TT2',[]]]};
+for(const d in TT2_DEF){const base=id=>TREE[d].find(q=>q.id===id);
+ for(const [id,t,look,role,next] of TT2_DEF[d]){const b=base(look);if(!b)continue;
+  TREE[d].push({id,t,tt2:1,look,name:id,role:'TT2 · '+role,p:{...b.p},perk:{hp:1.3+.06*t,speed:1.1,reload:.82,fp:1.3+.05*t,radar:1.5},next});}
+ const top=TREE[d].find(q=>q.id===TT2_T7[d]);if(top)top.next=[...(top.next||[]),...TT2_DEF[d].filter(e=>e[1]===1).map(e=>e[0])];}
 const NODE=new Map();for(const d in TREE)for(const n of TREE[d]){n.dom=d;n.type=TYPE_OF[d];NODE.set(n.id,n);}
 for(const d in TREE)for(const n of TREE[d])n.parents=TREE[d].filter(q=>(q.next||[]).includes(n.id)).map(q=>q.id);
 const nodeOwned=id=>OWNER||!!salvLoad().own[id];
-const nodeOpen=n=>n.t===1||n.parents.some(nodeOwned);
+const nodeOpen=n=>(n.t===1&&!n.tt2)||n.parents.some(nodeOwned);
 // the garage rows of the new vehicles are locked until their node is owned
 function salvGate(t,key,i){const L=(NEW_OPT[t]||{})[key];if(!L||!L.includes(i))return null;for(const n of TREE[DOM_OF[t]])if(n.p[key]===i)return n;return null;}
 function salvOptOk(t,key,i){if(TREE[DOM_OF[t]].some(n=>n.custom&&nodeOwned(n.id)))return true;const n=salvGate(t,key,i);return !n||nodeOwned(n.id);}   // v3.8 owning 'Make your own' unlocks every part of that branch
 // the build a node stands for
+const TT2_PAINT=PAINTS.push({name:'TT2 graphite',top:[.20,.22,.26],under:[.05,.06,.08],accent:[.25,.9,1.]})-1;   // added last: the paint indices of saved builds stay the same
 function nodeSpec(n){
  const s=n.type==='ship'?shipDefault():defaultSpec(n.type);
  for(const k in n.p)if(s.p[k]!==undefined)s.p[k]=n.p[k];
+ if(n.tt2&&n.type==='ship'&&TT2_PAINT>=0)s.p.paint=TT2_PAINT;                     // TT2 ships wear graphite with cyan trim
  if(salvLoad().pick[n.dom+'paint']!==undefined)s.p.paint=salvLoad().pick[n.dom+'paint'];
- s.node=n.id;return s;
+ s.node=n.look||n.id;if(n.tt2)s.tt2=n.id;return s;
 }
 // the tier a build counts as (sets its cargo hold): its node's, or the lowest node using the same hull
 function specTier(spec){
@@ -15660,9 +15694,9 @@ function salvMul(kind,dom){
 }
 // stats: refits, doctrines and the node's perk on top of the garage numbers (garage previews show them too)
 for(const t of ['ship','tank','plane']){const base=STATS[t];STATS[t]=spec=>{
- const st=base(spec),d=DOM_OF[t],pk=spec.node&&NODE.has(spec.node)?NODE.get(spec.node).perk||{}:{};
+ const st=base(spec),d=DOM_OF[t],pk=(spec.tt2&&NODE.has(spec.tt2)?NODE.get(spec.tt2).perk:spec.node&&NODE.has(spec.node)?NODE.get(spec.node).perk:null)||{};
  const hp=salvMul('hp',d)*(pk.hp||1),sp=salvMul('speed',d)*(pk.speed||1);
- st.hp*=hp;st.cruise*=sp;st.flank*=sp;if(st.stall)st.stall=st.stall;st.perk=pk;st.node=spec.node||null;return st;};}
+ st.hp*=hp;st.cruise*=sp;st.flank*=sp;if(st.stall)st.stall=st.stall;if(pk.fp&&st.firepower)st.firepower*=pk.fp;st.perk=pk;st.node=spec.node||null;st.tt2=spec.tt2||null;st.hover=!!(spec.tt2&&t==='tank');return st;};}
 function salvCargoCap(){if(!vehicle)return 300;const pk=vehicle.node&&NODE.has(vehicle.node)?NODE.get(vehicle.node):null;return Math.round(TIER_CARGO[specTier(vehicle)-1]*salvMul('cargo',DOM_OF[vehicle.type]));}
 function salvReloadMul(){const pk=vehicle&&vehicle.node&&NODE.has(vehicle.node)?NODE.get(vehicle.node).perk||{}:{};return salvMul('reload')*(pk.reload||1);}
 
@@ -15801,7 +15835,7 @@ function salvTick(t,dt){
 function salvBank(where){
  const S=salvLoad();if(S.cargo<=0)return;
  const a=Math.round(S.cargo*(where==='outpost'&&docOn('fort')?1.15:1));
- S.bank+=a;S.total+=a;if(boot&&!boot.done){boot.banked=1;bootSave();}if(S.wk!==salvWeek()){S.wk=salvWeek();S.sw=0;S.dv='----';}S.sw+=a;S.cargo=0;salvSave();salvHudDirty=true;docCache.t=-1;
+ S.bank+=a;S.total+=a;{const tk=Math.round(a*(VS&&VS.tt2?1:.02));S.tech=(+S.tech||0)+tk;if(VS&&VS.tt2&&tk)setTimeout(()=>toast('+'+tk+' TECH (Tech Tree 2)',2500),900);}if(boot&&!boot.done){boot.banked=1;bootSave();}if(S.wk!==salvWeek()){S.wk=salvWeek();S.sw=0;S.dv='----';}S.sw+=a;S.cargo=0;salvSave();salvHudDirty=true;docCache.t=-1;
  const on=opts.banners;opts.banners=true;showBanner('SALVAGE BANKED','+'+a,'BANK '+S.bank.toLocaleString()+' · SPEND IT IN THE SERVICE TREE (B)','#f2b84b');opts.banners=on;
  news(`<b style="color:#f2b84b">+${a} salvage banked</b> &middot; ${FACTIONS[PF].tag} pool ${factionPool(PF).toLocaleString()}`,12000);
  if(typeof cloudPush==='function')setTimeout(()=>cloudPush(),500);
@@ -15857,37 +15891,45 @@ window.addEventListener('keydown',e=>{
 });
 let salvWkT=0;
 function nodeState(n){return nodeOwned(n.id)?'own':nodeOpen(n)?'open':'lock';}
+// v5.7 which tree the hangar shows (1 or 2), what a node costs and what it is paid with
+let hgTT=1;
+const nodeCost=n=>n.tt2?TT2_COST[n.t-1]:TIER_COST[n.t-1];
+const nodePaid=n=>n.tt2&&n.t>1?'tech':'bank';
+const nodeCur=n=>nodePaid(n)==='tech'?'&#9881; ':'&#9670; ';
 function renderHangar(){
- const S=salvLoad(),nodes=TREE[hgDom],tiers=[1,2,3,4,5,6,7];
+ const S=salvLoad();S.tech=+S.tech||0;
+ if(hgSel&&NODE.has(hgSel)&&!!NODE.get(hgSel).tt2!==(hgTT===2))hgSel=null;
+ const nodes=TREE[hgDom].filter(n=>!!n.tt2===(hgTT===2)),tiers=hgTT===2?[1,2,3,4,5,6]:[1,2,3,4,5,6,7];
  if(S.refund){toast('The Service Tree is new! Your old vehicles were refunded: +'+S.refund.toLocaleString()+' salvage banked',7000);S.refund=0;salvSave();}
- if(!hgSel||NODE.get(hgSel).dom!==hgDom)hgSel=(S.pick[hgDom]&&NODE.has(S.pick[hgDom]))?S.pick[hgDom]:nodes[0].id;
+ if(!hgSel||NODE.get(hgSel).dom!==hgDom||!nodes.includes(NODE.get(hgSel)))hgSel=(S.pick[hgDom]&&NODE.has(S.pick[hgDom])&&nodes.includes(NODE.get(S.pick[hgDom])))?S.pick[hgDom]:nodes[0].id;
  const sel=NODE.get(hgSel),st=vehicleStats(nodeSpec(sel)),ns=nodeState(sel),dc=doctrines();
- const W=1050,H=550,colW=W/7,pos={};
+ const W=1050,H=550,colW=W/tiers.length,pos={};
  for(const t of tiers){const row=nodes.filter(n=>n.t===t);row.forEach((n,k)=>{pos[n.id]=[colW*(t-.5),H*(k+1)/(row.length+1)];});}
- let lines='';for(const n of nodes)for(const c of (n.next||[])){const a=pos[n.id],b=pos[c],on=nodeOwned(n.id)&&nodeOwned(c),av=nodeOwned(n.id)&&!nodeOwned(c);
+ let lines='';for(const n of nodes)for(const c of (n.next||[])){if(!pos[c])continue;const a=pos[n.id],b=pos[c],on=nodeOwned(n.id)&&nodeOwned(c),av=nodeOwned(n.id)&&!nodeOwned(c);
   lines+=`<path d="M${a[0]+70},${a[1]} C${a[0]+colW/2},${a[1]} ${b[0]-colW/2},${b[1]} ${b[0]-70},${b[1]}" class="${on?'own':av?'av':''}"/>`;}
- const card=n=>{const s=nodeState(n),p=pos[n.id],cost=TIER_COST[n.t-1],isNew=n.role.startsWith('NEW');
+ const card=n=>{const s=nodeState(n),p=pos[n.id],cost=nodeCost(n),isNew=n.role.startsWith('NEW');
   return `<button class="tn ${s} ${n.id===hgSel?'sel':''}" data-node="${n.id}" style="left:${p[0]/W*100}%;top:${p[1]/H*100}%">
    <small>TIER ${['I','II','III','IV','V','VI','VII'][n.t-1]}${isNew?' &middot; <em>NEW</em>':''}</small><b>${n.name}</b>
-   <span>${s==='own'?'IN SERVICE':s==='open'?'&#9670; '+cost.toLocaleString():'LOCKED'}</span></button>`;};
+   <span>${s==='own'?'IN SERVICE':s==='open'?nodeCur(n)+cost.toLocaleString():'LOCKED'}</span></button>`;};
  const bar=(l,v,max,txt)=>`<div class="hs"><label>${l}</label><div><i style="width:${Math.min(100,v/max*100)}%"></i></div><span>${txt}</span></div>`;
  const kn=v=>sel.type==='ship'?Math.round(v*1.944)+' kn':Math.round(v*3.6)+' km/h',sc=({ship:[45,70],tank:[45,60],plane:[340,440]})[sel.type];
- const pk=sel.perk||{},perk=[pk.hp?'+'+Math.round((pk.hp-1)*100)+'% armour':'',pk.speed?'+'+Math.round((pk.speed-1)*100)+'% speed':'',pk.reload?Math.round((1-pk.reload)*100)+'% faster reloads':''].filter(Boolean).join(' &middot; ');
+ const pk=sel.perk||{},perk=[pk.hp?'+'+Math.round((pk.hp-1)*100)+'% armour':'',pk.speed?'+'+Math.round((pk.speed-1)*100)+'% speed':'',pk.reload?Math.round((1-pk.reload)*100)+'% faster reloads':'',pk.fp?'+'+Math.round((pk.fp-1)*100)+'% firepower':'',sel.tt2&&sel.type==='tank'?'HOVERS over water, mud and snow':''].filter(Boolean).join(' &middot; ');
  const parents=sel.parents.map(id=>NODE.get(id).name);
  const d=hgDom;
  let h=`<div class="hg-top"><div><h2 class="t">HANGAR</h2><div class="hmode"><button class="on">SERVICE TREE</button><button id="hg-mode-cust">CUSTOMISE</button></div><div class="sub">Bank salvage, pick one of two at every tier, then customise what you own. Everything you unlock stays yours.</div></div>
-  <div class="hg-bank"><small>BANKED SALVAGE</small><b>&#9670; ${S.bank.toLocaleString()}</b><span>${S.cargo?'+'+S.cargo+' carried (bank it at a base)':'carried: none'}</span></div>
+  <div class="hmode" style="margin:0"><button data-tt="1" class="${hgTT===1?'on':''}">TECH TREE 1</button><button data-tt="2" class="${hgTT===2?'on':''}">TECH TREE 2</button></div>
+  <div class="hg-bank"><small>BANKED SALVAGE${hgTT===2?' &middot; TECH':''}</small><b>&#9670; ${S.bank.toLocaleString()}${hgTT===2?` &nbsp;&#9881; ${S.tech.toLocaleString()}`:''}</b><span>${S.cargo?'+'+S.cargo+' carried (bank it at a base)':'carried: none'}</span></div>
   <button class="btn sm" id="hg-x">${hgFrom==='play'?'BACK TO THE FIGHT (B)':hgFrom==='port'?'BACK TO THE BASE':'BACK'}</button></div>
-  <div class="hg-tabs">${['land','sea','air'].map(k=>{const o=TREE[k].filter(n=>nodeOwned(n.id)).length;return `<button data-dom="${k}" class="${k===d?'on':''}" style="--dc:${DOM_COL[k]}"><b>${DOM_LABEL[k]}</b><span>${k==='land'?'tanks':k==='sea'?'ships':'aircraft'} &middot; ${o}/${TREE[k].length}</span></button>`;}).join('')}</div>
+  <div class="hg-tabs">${['land','sea','air'].map(k=>{const L=TREE[k].filter(n=>!!n.tt2===(hgTT===2)),o=L.filter(n=>nodeOwned(n.id)).length;return `<button data-dom="${k}" class="${k===d?'on':''}" style="--dc:${DOM_COL[k]}"><b>${DOM_LABEL[k]}</b><span>${hgTT===2&&k==='land'?'hover tanks':k==='land'?'tanks':k==='sea'?'ships':'aircraft'} &middot; ${o}/${L.length}</span></button>`;}).join('')}</div>
   <div class="hg-body"><div class="hg-scroll"><div class="hg-tree" style="--dc:${DOM_COL[d]}"><svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none">${lines}</svg>${nodes.map(card).join('')}
-   <div class="hg-tiers">${tiers.map(t=>`<span>${t===1?'START':'TIER '+t+' &middot; &#9670; '+TIER_COST[t-1].toLocaleString()}</span>`).join('')}</div></div></div>
+   <div class="hg-tiers" style="grid-template-columns:repeat(${tiers.length},1fr)">${tiers.map(t=>`<span>${hgTT===2?(t===1?'TT2 TIER 1 &middot; &#9670; '+TT2_COST[0].toLocaleString():'TIER '+t+' &middot; &#9881; '+TT2_COST[t-1].toLocaleString()):t===1?'START':'TIER '+t+' &middot; &#9670; '+TIER_COST[t-1].toLocaleString()}</span>`).join('')}</div></div></div>
   <div class="hg-side"><div class="hg-sel"><small>${DOM_LABEL[d]} &middot; TIER ${sel.t} &middot; ${ns==='own'?'IN SERVICE':ns==='open'?'AVAILABLE':'LOCKED'}</small><h3>${sel.name}</h3><p>${sel.role.replace(/^NEW · /,'<em>NEW</em> ')}</p>
    ${bar('SPEED',st.cruise,sc[0],kn(st.cruise))}${bar('HEALTH',st.hp/(HP_MUL[sel.type]||1),2.2,Math.round(st.hp*HP_PER).toLocaleString()+' HP')}${bar('FIREPOWER',st.firepower,400,String(Math.round(st.firepower)))}${bar('CARGO',TIER_CARGO[sel.t-1]*salvMul('cargo',d),1500,String(Math.round(TIER_CARGO[sel.t-1]*salvMul('cargo',d))))}
    ${perk?`<p class="perk">VETERAN PERK &middot; ${perk}</p>`:''}
    ${(sel.next||[]).length?`<p class="lead">Leads to: ${sel.next.map(id=>NODE.get(id).name).join(' <i>or</i> ')}</p>`:'<p class="lead">Top of the tree.</p>'}
    <div class="hg-act">${ns==='own'?`<button class="btn pri" id="hg-go">DEPLOY THIS ${sel.type==='plane'?'AIRCRAFT':sel.type.toUpperCase()}</button><button class="btn" id="hg-gar">CUSTOMISE</button>`
-     :ns==='open'?`<button class="btn pri" id="hg-buy" ${S.bank<TIER_COST[sel.t-1]&&!OWNER?'disabled':''}>UNLOCK &middot; &#9670; ${TIER_COST[sel.t-1].toLocaleString()}</button>${S.bank<TIER_COST[sel.t-1]?`<p class="need">${(TIER_COST[sel.t-1]-S.bank).toLocaleString()} more salvage needed</p>`:''}`
-     :`<p class="need">Unlock ${parents.join(' or ')} first.</p>`}</div></div>
+     :ns==='open'?(()=>{const c=nodeCost(sel),have=nodePaid(sel)==='tech'?S.tech:S.bank;return `<button class="btn pri" id="hg-buy" ${have<c&&!OWNER?'disabled':''}>UNLOCK &middot; ${nodeCur(sel)}${c.toLocaleString()}</button>${have<c?`<p class="need">${(c-have).toLocaleString()} more ${nodePaid(sel)==='tech'?'TECH needed - earned in TT2 vehicles (TT1 vehicles earn almost none)':'salvage needed'}</p>`:''}`;})()
+     :`<p class="need">${sel.tt2&&sel.t===1?'Tech Tree 2 opens when you own '+NODE.get(TT2_T7[d]).name+' (tier 7 of Tech Tree 1).':'Unlock '+parents.join(' or ')+' first.'}</p>`}</div></div>
    <div class="hg-ref"><small>${DOM_LABEL[d]} REFITS &middot; EVERY ${d==='land'?'TANK':d==='sea'?'SHIP':'AIRCRAFT'}</small>${REFITS.map(r=>{const l=refitLvl(d,r.id),c=REFIT_COST[l];
     return `<div class="rf"><div><b>${r.name}</b><span>${r.d}</span><em>${[0,1,2,3,4].map(k=>`<i class="${k<l?'on':''}"></i>`).join('')}</em></div><button class="btn sm" data-ref="${r.id}" ${l>=5||(S.bank<c&&!OWNER)?'disabled':''}>${l>=5?'MAX':'&#9670; '+c.toLocaleString()}</button></div>`;}).join('')}</div>
    <div class="hg-doc"><small>${FACTIONS[PF].name.toUpperCase()} DOCTRINES THIS WEEK</small>${DOCTRINE.map((D,i)=>{const a=dc.act[i];return `<p>${dc.pool>=D.need?`<b style="color:#f2b84b">${a?(a===D.a.id?D.a.name:D.b.name):'VOTE NOW'}</b>`:`<span>${D.need.toLocaleString()}</span>`}</p>`;}).join('')}<a href="#" id="hg-doc">Open the War Room &rsaquo;</a></div>
@@ -15898,7 +15940,8 @@ function renderHangar(){
  for(const b of hg.querySelectorAll('[data-node]'))b.onclick=()=>{hgSel=b.dataset.node;renderHangar();};
  for(const b of hg.querySelectorAll('[data-ref]'))b.onclick=()=>{const l=refitLvl(d,b.dataset.ref),c=REFIT_COST[l];if(l>=5||(S.bank<c&&!OWNER))return;if(!OWNER)S.bank-=c;S.refit[d][b.dataset.ref]=l+1;salvSave();
   toast(REFITS.find(r=>r.id===b.dataset.ref).name+' refit level '+(l+1)+' for every '+(d==='land'?'tank':d==='sea'?'ship':'aircraft'),2600);if(vehicle&&DOM_OF[vehicle.type]===d)setVehicle(vehicle);renderHangar();};
- const buy=$('hg-buy');if(buy)buy.onclick=()=>{const c=TIER_COST[sel.t-1];if(S.bank<c&&!OWNER)return;if(!OWNER)S.bank-=c;S.own[sel.id]=1;salvSave();
+ for(const b of hg.querySelectorAll('[data-tt]'))b.onclick=()=>{hgTT=+b.dataset.tt;hgSel=null;renderHangar();};
+ const buy=$('hg-buy');if(buy)buy.onclick=()=>{const c=nodeCost(sel),k=nodePaid(sel);if(S[k]<c&&!OWNER)return;if(!OWNER)S[k]-=c;S.own[sel.id]=1;salvSave();
   const on=opts.banners;opts.banners=true;showBanner('NEW IN SERVICE',sel.name.toUpperCase(),DOM_LABEL[d]+' · TIER '+sel.t+(sel.next?' · NEXT: '+sel.next.map(id=>NODE.get(id).name.toUpperCase()).join(' OR '):''),'#f2b84b');opts.banners=on;renderHangar();};
  const go=$('hg-go');if(go)go.onclick=()=>{S.pick[d]=sel.id;salvSave();const spec=nodeSpec(sel);garage.specs[sel.type]=spec;garage.type=sel.type;
   if(hgFrom==='port'&&game.port){garage.from='port';garage.port=game.port;closeHangar();deployFromGarage();return;}   // v3.7 at a dock: swap to it right here

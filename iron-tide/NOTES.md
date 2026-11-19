@@ -57,7 +57,9 @@ remembers why it started. They just keep fighting.
 | | Detailed models | 🔨 |
 | | Less lag / smooth | 🔨 v5.0 shader + governor fixes; needs Chromebook test |
 
-## Tech tree 2 (TT2)
+## Tech tree 2 (TT2) — ✅ v5.7 first version in the game (hangar: TECH TREE 1 / TECH TREE 2)
+- How it works now: a branch's TT2 opens when you own its tier 7; TT2 tier 1 costs 30,000 salvage; tiers 2–6 cost ⚙ TECH (4k/10k/25k/60k/140k). Banked salvage earns TECH 1:1 in a TT2 vehicle, 2% in a TT1 vehicle. TT2 perks: +36–66% armour, +10% speed, 18% faster reloads, +35–60% firepower. TT2 hover tanks cross water. Death penalties stay inside the tree you were in.
+- Still to do: their own models (each uses a TT1 top design in TT2 graphite for now), diving subs, the battleship from the drawing as BID-B3M, TT2 radar/AA tech effects beyond the stat perks.
 - A second, more advanced tech tree that dwarfs TT1 and makes it look weak.
 - **TT2 has no tier 7**: tiers 1–6 only (per the owner, 2026-11-19).
 - TT2 tanks — **hover tanks** (approved) (cross water, mud and snow; railguns, shields, drones, energy AA), tiers 1–6.
