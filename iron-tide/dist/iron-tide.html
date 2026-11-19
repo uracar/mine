@@ -4164,7 +4164,7 @@ function renderOps(){
 window.__contracts={get contract(){return contract;},conOffers,conAccept,conClear,contractStep,contractDock,conComplete,get done(){return conDone;}};
 
 // ---------- the game around the world: home screen, HUD, pause and settings, fuel and hull, harbours and the port screen, saving ----------
-const GAME_TITLE='IRON TIDE',GAME_VERSION='v6.3';
+const GAME_TITLE='IRON TIDE',GAME_VERSION='v6.4';
 try{document.getElementById('load').textContent='LOADING WORLD… '+GAME_VERSION;}catch(e){}
 const SAVE_KEY='irontide.save.v1';
 const BURN_IDLE=.00004,BURN_AHEAD=.00048;                 // fuel (0..1) per second; flank speed burns 2.5 times the ahead rate
@@ -13412,8 +13412,10 @@ function updateArmour(t,dt){
 // ---- drawing ----
 function emitWar(t){
  emitDrops();emitRemotes();emitRide();emitSalv(t);emitField(t);
- for(const a of air){if(a.transport||Math.hypot(a.x-cam.x,a.z-cam.z)>UNIT_DRAW_R[UNIT.PLANEAI])continue;if(a.heli){emitHeli(a.x,a.y-3,a.z,a.hd,a.pitch,a.roll,a.fid,a.dead?.2:1,t);continue;}emit(UNIT.PLANEAI,a.x,a.y,a.z,a.hd,a.pitch,a.roll,a.fid+1,1);}
- for(const k of armour){if(Math.hypot(k.x-cam.x,k.z-cam.z)>UNIT_DRAW_R[UNIT.TANKAI])continue;if(!k.dead&&k.aim!==undefined){if(k.th===undefined)k.th=k.hd;}tankTurHd=k.dead?k.hd+.6:(k.th??k.hd);emit(UNIT.TANKAI,k.x,k.y+(k.dead?-.5:.05),k.z,k.hd,k.pitch+(k.dead?.08:0),aiTankEmit(k),k.fid+1,1);tankTurRec=0;tankTurHd=null;}
+ for(const a of air){if(a.transport||Math.hypot(a.x-cam.x,a.z-cam.z)>UNIT_DRAW_R[UNIT.PLANEAI])continue;if(a.heli){emitHeli(a.x,a.y-3,a.z,a.hd,a.pitch,a.roll,a.fid,a.dead?.2:1,t);continue;}
+  aiCrew(a,'plane');{const pk=a.node&&Math.hypot(a.x-cam.x,a.y-cam.y,a.z-cam.z)<2500?aiPlaneKind(a.node):null;if(pk!=null){emit(pk,a.x,a.y,a.z,a.hd,a.pitch,a.roll,a.fid+1,1);continue;}}
+  emit(UNIT.PLANEAI,a.x,a.y,a.z,a.hd,a.pitch,a.roll,a.fid+1,1);}
+ for(const k of armour){if(Math.hypot(k.x-cam.x,k.z-cam.z)>UNIT_DRAW_R[UNIT.TANKAI])continue;if(!k.dead&&k.aim!==undefined){if(k.th===undefined)k.th=k.hd;}tankTurHd=k.dead?k.hd+.6:(k.th??k.hd);aiCrew(k,'tank');{const w=aiTankEmit(k);if(!(Math.hypot(k.x-cam.x,k.z-cam.z)<1200&&emitAITank(k,w)))emit(UNIT.TANKAI,k.x,k.y+(k.dead?-.5:.05),k.z,k.hd,k.pitch+(k.dead?.08:0),w,k.fid+1,1);}tankTurRec=0;tankTurHd=null;}
 }
 // distant battles: gun flashes and smoke on the horizon, flak bursts over a real one
 function battleFx(dt){
@@ -15496,6 +15498,55 @@ let tankTurHd=null,tankPivot=[0,0];
  if(Tm.P.length){unitMeshSrc[UNIT.TANKAI]=H;unitMesh[UNIT.TANKAI]=uploadUnitMesh(H);bindUnitVAO(UNIT.TANKAI);addUnitKind(Tm);extraDrawKinds.push(UNIT.TANKTUR);}
  else addUnitKind(mesh());
 })();
+// ---------- v6.4 AI tanks and aircraft are players in tech-tree vehicles (every tree, TT1 and TT2) ----------
+// An AI tank drives a real Service Tree tank (a TT2 hover tank when you are in TT2) within a tier of yours: its own hull and a turret that
+// turns onto its target, with that tank's health. An AI aircraft flies a real Service Tree aircraft. Up close they are drawn with the real
+// model; far away (where the detail cannot be seen) the light stand-ins are used, so a big battle stays smooth.
+const AI_VEH=new Map(),AI_REF={};
+function aiNode(dom){
+ const tt2=!!(VS&&VS.tt2),pt=vehicle?(VS&&VS.tt2&&NODE.has(VS.tt2)?NODE.get(VS.tt2).t:specTier(vehicle)):1;
+ const pool=TREE[dom].filter(n=>!!n.tt2===tt2&&!n.custom&&Math.abs(n.t-pt)<=1&&(n.t<7||pt>=7));
+ return pool.length?pool[Math.floor(Math.random()*pool.length)]:null;
+}
+function aiRefHp(t){if(!AI_REF[t]){const n=TREE[DOM_OF[t]].find(q=>q.t===1&&!q.tt2);AI_REF[t]=n?vehicleStats(nodeSpec(n)).hp:1;}return AI_REF[t];}
+function aiTankKinds(id){
+ let K=AI_VEH.get(id);if(K!==undefined)return K;K=null;
+ try{
+  const M=MESHES.tank(nodeSpec(NODE.get(id))),tur=new Set(),flash=new Set();
+  M.parts.forEach((d,i)=>{const g=i+1;if(d.kind==='turret'||(d.parent&&tur.has(d.parent)))tur.add(g);if(d.kind==='flash')flash.add(g);});
+  const tp=M.parts.findIndex(d=>d.kind==='turret'),pv=tp>=0?M.parts[tp].pivot:[0,0,0];
+  const H=mesh(),Tm=mesh(),hg=new Map(),tg=new Map(),AH=[],AT=[];
+  M.parts.forEach((d,i)=>{const g=i+1;if(tur.has(g)||flash.has(g)){if(d.kind==='barrel'){AT.push(d);tg.set(g,AT.length);}}else if(d.kind==='wheel'||d.kind==='tread'){AH.push(d);hg.set(g,AH.length);}});
+  for(let v=0;v<M.G.length;v+=3){const g=M.G[v];if(flash.has(g))continue;const onT=tur.has(g),O=onT?Tm:H,dx=onT?pv[0]:0,dz=onT?pv[2]:0,gi=onT?(tg.get(g)||0):(hg.get(g)||0);
+   for(let q=v;q<v+3;q++){O.P.push(M.P[q*3]-dx,M.P[q*3+1],M.P[q*3+2]-dz);O.N.push(M.N[q*3],M.N[q*3+1],M.N[q*3+2]);O.C.push(M.C[q*4],M.C[q*4+1],M.C[q*4+2],M.C[q*4+3]);O.G.push(gi);}}
+  H.parts=AH;Tm.parts=AT;
+  const reg=(Mx,u)=>{const k0=unitList.length;unitList.push([]);const k=addUnitKind(Mx);if(k!==k0)throw 0;UNIT_DRAW_R[k]=1300;unitFlags[k]={rad:12,roll:0,det:1,lod:-1,lodD:0};KIND_AIU.set(k,u);extraDrawKinds.push(k);if(solidKinds)solidKinds.splice(solidKinds.length-lodKinds.length,0,k);return k;};
+  const kh=reg(H,aiPartU(AH,0,0)),kt=Tm.P.length?reg(Tm,aiPartU(AT,pv[0],pv[2])):-1;
+  K={hull:kh,tur:kt,pv:[pv[0],pv[2]]};
+ }catch(e){K=null;}
+ AI_VEH.set(id,K);return K;
+}
+function aiPlaneKind(id){
+ const key='P'+id;let k=AI_VEH.get(key);if(k!==undefined)return k;k=null;
+ try{const M=MESHES.plane(nodeSpec(NODE.get(id))),F=mesh();const drop=new Set(M.parts.map((d,i)=>d.kind==='flash'||d.kind==='ab'?i+1:0).filter(Boolean));
+  for(let v=0;v<M.G.length;v+=3){if(drop.has(M.G[v]))continue;for(let q=v;q<v+3;q++){F.P.push(M.P[q*3],M.P[q*3+1],M.P[q*3+2]);F.N.push(M.N[q*3],M.N[q*3+1],M.N[q*3+2]);F.C.push(M.C[q*4],M.C[q*4+1],M.C[q*4+2],M.C[q*4+3]);F.G.push(0);}}
+  const k0=unitList.length;unitList.push([]);k=addUnitKind(F);if(k!==k0)throw 0;UNIT_DRAW_R[k]=2600;unitFlags[k]={rad:30,roll:0,det:1,lod:-1,lodD:0};extraDrawKinds.push(k);if(solidKinds)solidKinds.splice(solidKinds.length-lodKinds.length,0,k);}
+ catch(e){k=null;}
+ AI_VEH.set(key,k);return k;
+}
+// the first time an AI unit is seen it is given its vehicle (and that vehicle's health, scaled from the tier 1 one it used to have)
+function aiCrew(u,type){
+ if(u.node!==undefined)return;u.node=null;if(u.bot===undefined&&u.wing)return;
+ const n=aiNode(DOM_OF[type]);if(!n)return;u.node=n.id;u.vname=n.name;
+ const st=vehicleStats(nodeSpec(n)),k=st.hp/aiRefHp(type);if(u.hp0){u.hp*=k;u.hp0*=k;}
+}
+function emitAITank(k,walk){
+ const K=k.node&&aiTankKinds(k.node);if(!K)return false;
+ const x=k.x,y=k.y+(k.dead?-.5:.05),z=k.z,hd=k.hd,pitch=k.pitch+(k.dead?.08:0),ph=k.fid+1;
+ unitList[K.hull].push(x-cam.x,y,z-cam.z,hd,pitch,walk,ph,1);
+ if(K.tur>=0){const c=Math.cos(hd),s=Math.sin(hd),th=k.dead?hd+.6:(k.th??hd);unitList[K.tur].push(x+c*K.pv[0]+s*K.pv[1]-cam.x,y,z-s*K.pv[0]+c*K.pv[1]-cam.z,th,pitch,tankTurRec||0,ph,1);}
+ return true;
+}
 function emitTankTurret(x,y,z,hd,pitch,phase,scale){
  {const F=kindFlags(UNIT.TANKAI),dx=x-cam.x,dz=z-cam.z;if(F.lod>=0&&dx*dx+dz*dz>(F.lodD*(opts.detail||1))**2)return;}   // far tanks are the low-detail stand-in, turret included
  const c=Math.cos(hd),s=Math.sin(hd),sc=scale||1,px=tankPivot[0]*sc,pz=tankPivot[1]*sc,th=tankTurHd===null?hd:tankTurHd;

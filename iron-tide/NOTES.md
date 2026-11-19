@@ -15,6 +15,10 @@ Rules that follow from it:
 - **All models should be very, very different from each other.**
 - Smooth play comes first (target: ~20 fps on a school Chromebook, HP / Intel).
 
+## Working rule (owner, 2026-11-20)
+- **Every change applies to ALL tech trees** — TT1 and TT2, land, sea and air — unless the owner says otherwise.
+- No Netlify deploys: deliver a versioned HTML file (dist/iron-tide-vX.Y.html), version shown in the menu.
+
 ## Lore
 Humans learned to clone and sent most of their population to this world, **Griffy-55 (?)**. It is habitable and easy to fly over, but has too
 much atmosphere to leave; leaving needs a resource nobody has found yet. They've been locked in a world war ever since — so long that nobody
@@ -84,7 +88,7 @@ along both sides, a central superstructure block with two stacks, a tall stepped
 ## Other notes (2026-11-19)
 - **(?) "Hank/Hangar" should be connected to Netlify but not have everything unlocked.** ❓
 - **More weapons to choose from when customizing.** ⬜
-- **The AI should be treated as a real player, not as a separate thing.** 🔨 v6.2 AI warships sail real Service Tree ships (within a tier of yours, TT2 when you are in TT2) with that ship's model, health, size and speed, labelled 'AI · <ship name>'. Next: AI tanks and planes the same way.
+- **The AI should be treated as a real player, not as a separate thing.** 🔨 v6.2 AI warships sail real Service Tree ships (within a tier of yours, TT2 when you are in TT2) with that ship's model, health, size and speed, labelled 'AI · <ship name>'. v6.3 AI ship turrets train on their target · v6.4 AI tanks drive real Service Tree tanks (TT2 hover tanks when you are in TT2) with turning turrets, AI aircraft fly real Service Tree aircraft, each with that vehicle's health.
 
 ## Nations
 - Nation tech trees: US, Germany, USSR, UK, Japan — each with unique vehicles.
