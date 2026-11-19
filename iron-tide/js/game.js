@@ -3252,7 +3252,7 @@ function cloudRestore(s){
   const wCol=r=>({id:r.id,path:r.path,orderBy:(...a)=>wCol(r.orderBy(...a)),limit:(...a)=>wCol(r.limit(...a)),where:(...a)=>wCol(r.where(...a)),
    get:async()=>wQuery(await r.get()),add:async(...a)=>wDoc(await r.add(...a)),doc:id=>wDoc(r.doc(id)),onSnapshot:(cb,err)=>r.onSnapshot(x=>cb(wQuery(x)),err)});
   const db=db0?{doc:p=>wDoc(db0.doc(p)),collection:c=>wCol(db0.collection(c))}:db0;
-  try{if(user&&user.isOwner&&user.isOwner())ownerReady();}catch(e){}
+  try{if(user&&user.isOwner&&user.isOwner()&&/(^|[#&])owner\b/.test(location.hash))ownerReady();}catch(e){}   // v5.5 owner mode (everything unlocked) only on request (#owner): the owner progresses like any player
   const uid=user?await user.id():null;
   if(!db||!uid){cloud.status='Not signed in to the game database - your profile is saved in this browser.';}
   else{
