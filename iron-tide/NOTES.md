@@ -59,6 +59,8 @@ remembers why it started. They just keep fighting.
 
 ## Tech tree 2 (TT2)
 - A second, more advanced tech tree that dwarfs TT1 and makes it look weak.
+- **TT2 has no tier 7**: tiers 1–6 only (per the owner, 2026-11-19).
+- TT2 tanks — proposal awaiting a yes: **hover tanks** (cross water, mud and snow; railguns, shields, drones, energy AA), tiers 1–6.
 - Balance: TT2 vehicles earn almost zero credits from kills on TT1, so progressing TT2 is nearly impossible if a player camps TT1 vehicles.
 - TT2 vehicles are much better: better radar, better AA systems, better materials, better weapons such as **(?) blasters**.
 - Name key: first letters = name, second letters = role: **I** interceptor, **A** attack, **T** tank, **C** command, **M** mixed, **F** fighter, **H** heli.
