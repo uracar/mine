@@ -42,7 +42,8 @@ body { background: var(--bg); color: var(--ink); font-family: var(--body); font-
 }
 @media (max-width: 860px) { .app { grid-template-columns: minmax(0, 1fr); } }
 
-.stage-wrap { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+.stage-wrap { display: flex; flex-direction: column; gap: 10px; min-width: 0; position: sticky; top: 16px; height: calc(100vh - 32px); align-self: start; }
+@media (max-width: 860px) { .stage-wrap { position: static; height: auto; } }
 .brand { display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; }
 .brand h1 { font-family: var(--display); font-weight: 700; font-size: 26px; letter-spacing: 0.02em; margin: 0; }
 .brand h1 span { color: var(--accent); }
@@ -98,6 +99,10 @@ button.small { padding: 5px 9px; font-size: 12px; }
 .shelf-item { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; gap: 6px; align-items: center; }
 .shelf-item button.load { text-align: left; font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .empty { color: var(--muted); font-size: 12px; }
+.slider { display: grid; grid-template-columns: 92px minmax(0, 1fr) 52px; gap: 8px; align-items: center; font-size: 12px; color: var(--muted); }
+.slider output { font-family: var(--mono); color: var(--ink); text-align: right; font-variant-numeric: tabular-nums; }
+.slider input { width: 100%; accent-color: var(--accent); }
+.part b { font-weight: 500; color: var(--accent); }
 @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
 </style>
 
@@ -146,6 +151,18 @@ button.small { padding: 5px 9px; font-size: 12px; }
       <p class="hint" id="aiNote">Uses your own Claude plan, the same as sending a chat message. No extra charges.</p>
     </div>
 
+    <div class="card" id="animCard">
+      <h2>Moving parts</h2>
+      <div class="row">
+        <button class="primary" id="fireBtn">Fire</button>
+        <button id="showBtn" aria-pressed="true">Showcase on</button>
+        <button id="gearBtn" hidden>Gear up</button>
+      </div>
+      <div class="slider" id="driveRow"><label for="drive">Drive speed</label><input type="range" id="drive" min="0" max="20" step="0.5" value="4"><output id="driveOut">4 m/s</output></div>
+      <div class="slider" id="throttleRow"><label for="throttle">Throttle</label><input type="range" id="throttle" min="0" max="100" step="1" value="70"><output id="throttleOut">70%</output></div>
+      <p class="hint" id="animNote">Space also fires. Showcase sways the turrets and fires every few seconds, like a garage preview.</p>
+    </div>
+
     <div class="card">
       <h2>Parts <span id="partCount"></span></h2>
       <div class="parts" id="parts"></div>
@@ -175,91 +192,155 @@ button.small { padding: 5px 9px; font-size: 12px; }
 <script src="https://cdn.jsdelivr.net/npm/three@0.147.0/examples/js/controls/OrbitControls.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/three@0.147.0/examples/js/exporters/GLTFExporter.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/three@0.147.0/examples/js/exporters/OBJExporter.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.147.0/examples/js/geometries/RoundedBoxGeometry.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.147.0/examples/js/math/ConvexHull.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.147.0/examples/js/geometries/ConvexGeometry.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.147.0/examples/js/environments/RoomEnvironment.js"></script>
 <script>
 (() => {
   "use strict";
   const $ = (id) => document.getElementById(id);
 
-  // ---------- The model format the AI writes ----------
-  const SHAPES = ["box", "sphere", "cylinder", "cone", "torus", "capsule"];
-  const MATERIALS = ["matte", "glossy", "metal", "glass", "glow"];
-  const MAX_PARTS = 220;
+  // ---------- The model format ----------
+  // parts: the pieces. groups: moving parts, each turning/sliding about its own pivot (same idea as Iron Tide's animation groups).
+  const SHAPES = ["box", "rbox", "sphere", "cylinder", "cone", "torus", "capsule", "hull"];
+  const MATERIALS = ["matte", "paint", "glossy", "metal", "rubber", "glass", "glow"];
+  const ANIMS = ["turret", "recoil", "flash", "roll", "spin", "blink", "fold", "flame", "wiggle", "track"];
+  const MAX_PARTS = 2000, MAX_GROUPS = 60;
 
   const EXAMPLE = {
     name: "Pocket Rover",
+    groups: [
+      { id: "dish", pivot: [-0.4, 1.45, 0.2], anim: { type: "spin", axis: [0, 1, 0], speed: 1.7 } },
+      { id: "beacon", pivot: [-0.4, 1.86, 0.2], anim: { type: "blink", rate: 1, duty: 0.4 } },
+      ...[[0.55, 0.6], [0.55, -0.6], [-0.55, 0.6], [-0.55, -0.6]].map(([x, z], i) => ({ id: "wheel" + i, pivot: [x, 0.28, z], anim: { type: "roll", radius: 0.28 } })),
+    ],
     parts: [
-      { name: "chassis", shape: "box", size: [1.6, 0.35, 1.0], position: [0, 0.55, 0], color: "#e0661b", material: "glossy" },
+      { name: "chassis", shape: "rbox", size: [1.6, 0.35, 1.0, 0.06], position: [0, 0.55, 0], color: "#e0661b", material: "paint" },
       { name: "deck plate", shape: "box", size: [1.3, 0.08, 0.8], position: [0, 0.76, 0], color: "#2b3a33", material: "metal" },
-      { name: "cabin", shape: "box", size: [0.7, 0.4, 0.6], position: [-0.15, 1.0, 0], color: "#f2efe6", material: "glossy" },
+      { name: "cabin", shape: "rbox", size: [0.7, 0.4, 0.6, 0.05], position: [-0.15, 1.0, 0], color: "#f2efe6", material: "glossy" },
       { name: "visor", shape: "box", size: [0.05, 0.22, 0.5], position: [0.21, 1.02, 0], color: "#7fd3ff", material: "glass" },
       { name: "mast", shape: "cylinder", size: [0.03, 0.03, 0.6], position: [-0.4, 1.45, 0.2], color: "#9aa5a0", material: "metal" },
-      { name: "dish", shape: "sphere", size: [0.14], position: [-0.4, 1.78, 0.2], scale: [1, 0.45, 1], color: "#f2efe6", material: "glossy" },
-      { name: "beacon", shape: "sphere", size: [0.05], position: [-0.4, 1.86, 0.2], color: "#ffd23f", material: "glow" },
+      { name: "dish", shape: "sphere", size: [0.14], position: [-0.4, 1.78, 0.2], scale: [1, 0.45, 1], color: "#f2efe6", material: "glossy", group: "dish" },
+      { name: "dish arm", shape: "box", size: [0.3, 0.03, 0.03], position: [-0.33, 1.75, 0.2], color: "#9aa5a0", material: "metal", group: "dish" },
+      { name: "beacon", shape: "sphere", size: [0.05], position: [-0.4, 1.86, 0.2], color: "#ffd23f", material: "glow", group: "beacon" },
       { name: "headlight left", shape: "sphere", size: [0.07], position: [0.81, 0.6, 0.3], color: "#fff6c8", material: "glow" },
       { name: "headlight right", shape: "sphere", size: [0.07], position: [0.81, 0.6, -0.3], color: "#fff6c8", material: "glow" },
-      { name: "wheel front left", shape: "cylinder", size: [0.28, 0.28, 0.2], position: [0.55, 0.28, 0.6], rotation: [90, 0, 0], color: "#26302b", material: "matte" },
-      { name: "wheel front right", shape: "cylinder", size: [0.28, 0.28, 0.2], position: [0.55, 0.28, -0.6], rotation: [90, 0, 0], color: "#26302b", material: "matte" },
-      { name: "wheel back left", shape: "cylinder", size: [0.28, 0.28, 0.2], position: [-0.55, 0.28, 0.6], rotation: [90, 0, 0], color: "#26302b", material: "matte" },
-      { name: "wheel back right", shape: "cylinder", size: [0.28, 0.28, 0.2], position: [-0.55, 0.28, -0.6], rotation: [90, 0, 0], color: "#26302b", material: "matte" },
-      { name: "hub front left", shape: "cylinder", size: [0.1, 0.1, 0.22], position: [0.55, 0.28, 0.61], rotation: [90, 0, 0], color: "#9aa5a0", material: "metal" },
-      { name: "hub front right", shape: "cylinder", size: [0.1, 0.1, 0.22], position: [0.55, 0.28, -0.61], rotation: [90, 0, 0], color: "#9aa5a0", material: "metal" },
-      { name: "hub back left", shape: "cylinder", size: [0.1, 0.1, 0.22], position: [-0.55, 0.28, 0.61], rotation: [90, 0, 0], color: "#9aa5a0", material: "metal" },
-      { name: "hub back right", shape: "cylinder", size: [0.1, 0.1, 0.22], position: [-0.55, 0.28, -0.61], rotation: [90, 0, 0], color: "#9aa5a0", material: "metal" },
-      { name: "cargo crate", shape: "box", size: [0.35, 0.25, 0.35], position: [0.4, 0.93, 0.05], rotation: [0, 15, 0], color: "#c9a46a", material: "matte" },
+      ...[[0.55, 0.6], [0.55, -0.6], [-0.55, 0.6], [-0.55, -0.6]].flatMap(([x, z], i) => {
+        const out = z > 0 ? 1 : -1;
+        return [
+          { name: "tyre " + (i + 1), shape: "cylinder", size: [0.28, 0.28, 0.2], position: [x, 0.28, z], rotation: [90, 0, 0], color: "#26302b", material: "rubber", group: "wheel" + i },
+          { name: "hub " + (i + 1), shape: "cylinder", size: [0.12, 0.12, 0.04], sides: 6, position: [x, 0.28, z + out * 0.1], rotation: [90, 0, 0], color: "#9aa5a0", material: "metal", group: "wheel" + i },
+          { name: "spoke " + (i + 1), shape: "box", size: [0.04, 0.42, 0.02], position: [x, 0.28, z + out * 0.11], color: "#c9d1cc", material: "metal", group: "wheel" + i },
+        ];
+      }),
+      { name: "cargo crate", shape: "rbox", size: [0.35, 0.25, 0.35, 0.03], position: [0.4, 0.93, 0.05], rotation: [0, 15, 0], color: "#c9a46a", material: "matte" },
       { name: "bumper", shape: "capsule", size: [0.06, 0.8], position: [0.84, 0.42, 0], rotation: [90, 0, 0], color: "#2b3a33", material: "metal" },
     ],
   };
 
   const num = (v, lo, hi, d) => (typeof v === "number" && isFinite(v) ? Math.min(hi, Math.max(lo, v)) : d);
   const vec = (v, n, lo, hi, d) => Array.from({ length: n }, (_, i) => num(Array.isArray(v) ? v[i] : undefined, lo, hi, d[i]));
+  const str = (v, n, d) => (typeof v === "string" && v.trim() ? v.trim().slice(0, n) : d);
 
-  // Clean up whatever the AI returns so a bad answer can't break the viewer.
+  const ANIM_AXIS = { turret: [0, 1, 0], recoil: [-1, 0, 0], roll: [0, 0, -1], spin: [1, 0, 0], fold: [0, 0, 1], flame: [1, 0, 0], wiggle: [0, 0, 1], flash: [1, 0, 0] };
+  function cleanAnim(a) {
+    const type = ANIMS.includes(a?.type) ? a.type : null;
+    if (!type) return null;
+    const axis = vec(a.axis, 3, -1, 1, ANIM_AXIS[type] || [0, 1, 0]);
+    if (Math.hypot(...axis) < 1e-3) axis.splice(0, 3, ...(ANIM_AXIS[type] || [0, 1, 0]));
+    const out = { type, axis, speed: num(a.speed, -200, 200, type === "spin" ? 2 : 0.5), amount: num(a.amount, -20, 20, type === "turret" ? 0.6 : type === "recoil" ? 0.4 : type === "fold" ? 1.57 : 0.3),
+      radius: num(a.radius, 0.01, 50, 0.3), rate: num(a.rate, 0.05, 10, 1), duty: num(a.duty, 0.05, 0.95, 0.4), phase: num(a.phase, -100, 100, 0), byThrottle: !!a.byThrottle };
+    if (type === "track" && Array.isArray(a.path)) {
+      out.path = a.path.slice(0, 600).filter((p) => Array.isArray(p)).map((p) => vec(p, 2, -500, 500, [0, 0]));
+      if (out.path.length < 3) return null;
+    } else if (type === "track") return null;
+    return out;
+  }
+
+  // Clean up whatever comes in (AI answers, the shelf) so a bad model can't break the viewer.
   function clean(raw) {
     if (!raw || !Array.isArray(raw.parts)) throw new Error("The AI's answer had no parts list.");
-    const parts = raw.parts.slice(0, MAX_PARTS).map((p, i) => {
+    const groups = [];
+    const ids = new Set();
+    for (const g of Array.isArray(raw.groups) ? raw.groups.slice(0, MAX_GROUPS) : []) {
+      const id = str(g?.id, 40, null);
+      if (!id || ids.has(id)) continue;
+      ids.add(id);
+      groups.push({ id, parent: str(g.parent, 40, null), pivot: vec(g.pivot, 3, -500, 500, [0, 0, 0]), anim: cleanAnim(g.anim) });
+    }
+    for (const g of groups) if (g.parent && (!ids.has(g.parent) || g.parent === g.id)) g.parent = null;
+    // break any parent loops
+    for (const g of groups) {
+      const seen = new Set([g.id]);
+      let p = g.parent;
+      while (p) { if (seen.has(p)) { g.parent = null; break; } seen.add(p); p = groups.find((x) => x.id === p)?.parent; }
+    }
+    const DEF = { box: [0.5, 0.5, 0.5], rbox: [0.5, 0.5, 0.5, 0.05], sphere: [0.25], cylinder: [0.2, 0.2, 0.5], cone: [0.25, 0.5], torus: [0.3, 0.08], capsule: [0.15, 0.4], hull: [] };
+    const parts = [];
+    for (const [i, p] of raw.parts.slice(0, MAX_PARTS).entries()) {
       const shape = SHAPES.includes(p?.shape) ? p.shape : "box";
-      const defaults = { box: [0.5, 0.5, 0.5], sphere: [0.25], cylinder: [0.2, 0.2, 0.5], cone: [0.25, 0.5], torus: [0.3, 0.08], capsule: [0.15, 0.4] }[shape];
-      return {
-        name: typeof p?.name === "string" ? p.name.slice(0, 60) : `part ${i + 1}`,
+      const part = {
+        name: str(p?.name, 60, `part ${i + 1}`),
         shape,
-        size: vec(p?.size, defaults.length, 0.005, 50, defaults),
-        position: vec(p?.position, 3, -100, 100, [0, 0, 0]),
-        rotation: vec(p?.rotation, 3, -360, 360, [0, 0, 0]),
-        scale: vec(p?.scale, 3, 0.01, 20, [1, 1, 1]),
+        size: vec(p?.size, DEF[shape].length, 0.002, 500, DEF[shape]),
+        position: vec(p?.position, 3, -500, 500, [0, 0, 0]),
+        rotation: vec(p?.rotation, 3, -720, 720, [0, 0, 0]),
+        scale: vec(p?.scale, 3, 0.005, 50, [1, 1, 1]),
         color: /^#[0-9a-fA-F]{6}$/.test(p?.color) ? p.color : "#9aa5a0",
         material: MATERIALS.includes(p?.material) ? p.material : "matte",
       };
-    });
-    if (!parts.length) throw new Error("The AI's answer had no usable parts.");
-    return { name: typeof raw.name === "string" && raw.name.trim() ? raw.name.trim().slice(0, 60) : "Untitled model", parts };
+      if (shape === "hull") {
+        const pts = Array.isArray(p.points) ? p.points.slice(0, 96).filter(Array.isArray).map((q) => vec(q, 3, -500, 500, [0, 0, 0])) : [];
+        if (pts.length < 4) continue;
+        part.points = pts;
+      }
+      if ((shape === "cylinder" || shape === "cone") && p.sides) part.sides = Math.round(num(p.sides, 3, 64, 32));
+      if (p.flat) part.flat = true;
+      if (p.group && ids.has(p.group)) part.group = p.group;
+      parts.push(part);
+    }
+    if (!parts.length) throw new Error("The answer had no usable parts.");
+    const out = { name: str(raw.name, 60, "Untitled model"), parts };
+    if (groups.length) out.groups = groups;
+    return out;
   }
 
   // ---------- 3D stage ----------
+  if (THREE.ColorManagement) THREE.ColorManagement.legacyMode = false; // treat #hex colours as real sRGB, so they don't wash out
   const stageEl = $("stage");
   const renderer = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true });
   renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
   renderer.shadowMap.enabled = true;
   renderer.shadowMap.type = THREE.PCFSoftShadowMap;
   renderer.outputEncoding = THREE.sRGBEncoding;
+  renderer.toneMapping = THREE.ACESFilmicToneMapping;
+  renderer.toneMappingExposure = 1.05;
   stageEl.prepend(renderer.domElement);
 
   const scene = new THREE.Scene();
-  const camera = new THREE.PerspectiveCamera(40, 1, 0.01, 500);
+  try { // soft studio reflections so metal and glass look real
+    const pmrem = new THREE.PMREMGenerator(renderer);
+    scene.environment = pmrem.fromScene(new THREE.RoomEnvironment(), 0.04).texture;
+  } catch (e) { /* plain lights still work */ }
+  const camera = new THREE.PerspectiveCamera(38, 1, 0.01, 5000);
   const controls = new THREE.OrbitControls(camera, renderer.domElement);
   controls.enableDamping = true;
-  controls.autoRotate = !matchMedia("(prefers-reduced-motion: reduce)").matches;
-  controls.autoRotateSpeed = 1.2;
+  const reduceMotion = matchMedia("(prefers-reduced-motion: reduce)").matches;
+  controls.autoRotate = !reduceMotion;
+  controls.autoRotateSpeed = 0.9;
 
-  scene.add(new THREE.HemisphereLight(0xffffff, 0x444a46, 0.75));
-  const sun = new THREE.DirectionalLight(0xffffff, 0.95);
+  scene.add(new THREE.HemisphereLight(0xffffff, 0x3a403c, 0.35));
+  const sun = new THREE.DirectionalLight(0xfff4e6, 1.6);
   sun.castShadow = true;
   sun.shadow.mapSize.set(2048, 2048);
-  sun.shadow.bias = -0.0005;
+  sun.shadow.bias = -0.0004;
+  sun.shadow.normalBias = 0.02;
   scene.add(sun, sun.target);
-  const rim = new THREE.DirectionalLight(0xffe2c8, 0.35);
+  const rim = new THREE.DirectionalLight(0xbcd6ff, 0.55);
   scene.add(rim);
 
-  const ground = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), new THREE.ShadowMaterial({ opacity: 0.22 }));
+  const ground = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), new THREE.ShadowMaterial({ opacity: 0.28 }));
   ground.rotation.x = -Math.PI / 2;
   ground.receiveShadow = true;
   scene.add(ground);
@@ -268,7 +349,7 @@ button.small { padding: 5px 9px; font-size: 12px; }
   function cssColor(name) { return new THREE.Color(getComputedStyle(document.documentElement).getPropertyValue(name).trim() || "#888"); }
   function applyTheme() {
     scene.background = cssColor("--stage");
-    if (grid) { grid.material.color = cssColor("--stage-grid"); }
+    if (grid) grid.material.color = cssColor("--stage-grid");
   }
   matchMedia("(prefers-color-scheme: dark)").addEventListener("change", applyTheme);
   new MutationObserver(applyTheme).observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
@@ -277,56 +358,196 @@ button.small { padding: 5px 9px; font-size: 12px; }
     const s = p.size;
     switch (p.shape) {
       case "box": return new THREE.BoxGeometry(s[0], s[1], s[2]);
+      case "rbox": {
+        const r = Math.min(s[3], s[0] / 2 - 1e-4, s[1] / 2 - 1e-4, s[2] / 2 - 1e-4);
+        return r > 0.0005 ? new THREE.RoundedBoxGeometry(s[0], s[1], s[2], 2, r) : new THREE.BoxGeometry(s[0], s[1], s[2]);
+      }
       case "sphere": return new THREE.SphereGeometry(s[0], 32, 20);
-      case "cylinder": return new THREE.CylinderGeometry(s[0], s[1], s[2], 32);
-      case "cone": return new THREE.ConeGeometry(s[0], s[1], 32);
-      case "torus": return new THREE.TorusGeometry(s[0], s[1], 16, 48);
-      case "capsule": return new THREE.CapsuleGeometry(s[0], s[1], 8, 20);
+      case "cylinder": return new THREE.CylinderGeometry(s[0], s[1], s[2], p.sides || 32);
+      case "cone": return new THREE.ConeGeometry(s[0], s[1], p.sides || 32);
+      case "torus": return new THREE.TorusGeometry(s[0], s[1], 12, 40);
+      case "capsule": return new THREE.CapsuleGeometry(s[0], s[1], 6, 16);
+      case "hull": {
+        try { return new THREE.ConvexGeometry(p.points.map((q) => new THREE.Vector3(...q))); }
+        catch { return new THREE.BoxGeometry(0.1, 0.1, 0.1); }
+      }
     }
   }
+  const matCache = new Map();
   function materialFor(p) {
+    const flat = p.flat || p.shape === "hull";
+    const key = p.color + p.material + (flat ? "f" : "");
+    if (matCache.has(key)) return matCache.get(key);
     const color = new THREE.Color(p.color);
+    let m;
     switch (p.material) {
-      case "glossy": return new THREE.MeshStandardMaterial({ color, roughness: 0.25, metalness: 0.05 });
-      case "metal": return new THREE.MeshStandardMaterial({ color, roughness: 0.35, metalness: 0.85 });
-      case "glass": return new THREE.MeshStandardMaterial({ color, roughness: 0.05, metalness: 0.1, transparent: true, opacity: 0.45 });
-      case "glow": return new THREE.MeshStandardMaterial({ color, emissive: color, emissiveIntensity: 1.1, roughness: 0.4 });
-      default: return new THREE.MeshStandardMaterial({ color, roughness: 0.85, metalness: 0 });
+      case "paint": m = new THREE.MeshStandardMaterial({ color, roughness: 0.62, metalness: 0.18 }); break;
+      case "glossy": m = new THREE.MeshStandardMaterial({ color, roughness: 0.22, metalness: 0.05 }); break;
+      case "metal": m = new THREE.MeshStandardMaterial({ color, roughness: 0.32, metalness: 0.9 }); break;
+      case "rubber": m = new THREE.MeshStandardMaterial({ color, roughness: 0.95, metalness: 0 }); break;
+      case "glass": m = new THREE.MeshStandardMaterial({ color, roughness: 0.04, metalness: 0.3, transparent: true, opacity: 0.5 }); break;
+      case "glow": m = new THREE.MeshStandardMaterial({ color, emissive: color, emissiveIntensity: 2.2, roughness: 0.4 }); break;
+      default: m = new THREE.MeshStandardMaterial({ color, roughness: 0.85, metalness: 0 });
     }
+    m.envMapIntensity = p.material === "metal" || p.material === "glass" ? 1 : 0.55;
+    m.flatShading = flat;
+    matCache.set(key, m);
+    return m;
   }
 
-  let current = null;     // the cleaned model on the stage
-  let group = null;       // its THREE.Group
+  let current = null, root = null;
+  let animated = [];   // [{g, obj, anim, rest, angle, links}]
   const history = [];
 
+  function disposeRoot() {
+    if (!root) return;
+    scene.remove(root);
+    root.traverse((o) => { if (o.isMesh) o.geometry.dispose(); });
+    for (const m of matCache.values()) m.dispose();
+    matCache.clear();
+  }
+
   function show(model, meta) {
-    if (group) {
-      scene.remove(group);
-      group.traverse((o) => { if (o.isMesh) { o.geometry.dispose(); o.material.dispose(); } });
+    disposeRoot();
+    root = new THREE.Group();
+    root.name = model.name;
+    const gmap = new Map();
+    const pivotOf = (id) => (id ? model.groups.find((g) => g.id === id).pivot : [0, 0, 0]);
+    // create groups parent-first
+    const groups = model.groups || [];
+    const depth = (g) => (g.parent ? 1 + depth(groups.find((x) => x.id === g.parent)) : 0);
+    animated = [];
+    for (const g of [...groups].sort((a, b) => depth(a) - depth(b))) {
+      const obj = new THREE.Group();
+      obj.name = g.id;
+      const pp = pivotOf(g.parent);
+      obj.position.set(g.pivot[0] - pp[0], g.pivot[1] - pp[1], g.pivot[2] - pp[2]);
+      (g.parent ? gmap.get(g.parent) : root).add(obj);
+      gmap.set(g.id, obj);
+      if (g.anim) animated.push({ g, obj, anim: g.anim, rest: obj.position.clone(), angle: 0, axis: new THREE.Vector3(...g.anim.axis).normalize() });
     }
-    group = new THREE.Group();
-    group.name = model.name;
     for (const p of model.parts) {
       const mesh = new THREE.Mesh(geometryFor(p), materialFor(p));
       mesh.name = p.name;
-      mesh.position.set(...p.position);
+      const pv = pivotOf(p.group);
+      mesh.position.set(p.position[0] - pv[0], p.position[1] - pv[1], p.position[2] - pv[2]);
       mesh.rotation.set(...p.rotation.map((d) => THREE.MathUtils.degToRad(d)));
       mesh.scale.set(...p.scale);
-      mesh.castShadow = true;
+      mesh.castShadow = p.material !== "glow" && p.material !== "glass";
       mesh.receiveShadow = true;
-      group.add(mesh);
+      (p.group ? gmap.get(p.group) : root).add(mesh);
     }
-    scene.add(group);
+    for (const a of animated) if (a.anim.type === "track") setupTrack(a);
+    scene.add(root);
     current = model;
     frame();
     $("modelName").textContent = model.name;
     $("modelMeta").textContent = meta;
     renderParts(model);
+    updateAnimCard();
   }
 
-  // Point the camera, lights, shadow and grid at the new model's size.
+  // Track loop: every part in the group slides around the closed path (x,y relative to the group's pivot).
+  function setupTrack(a) {
+    const P = a.anim.path, n = P.length, cum = [0];
+    for (let i = 0; i < n; i++) { const p = P[i], q = P[(i + 1) % n]; cum.push(cum[i] + Math.hypot(q[0] - p[0], q[1] - p[1])); }
+    const L = cum[n];
+    const at = (s) => {
+      s = ((s % L) + L) % L;
+      let i = 0, lo = 0, hi = n - 1;
+      while (lo <= hi) { const m = (lo + hi) >> 1; if (cum[m] <= s) { i = m; lo = m + 1; } else hi = m - 1; }
+      const p = P[i], q = P[(i + 1) % n], seg = cum[i + 1] - cum[i] || 1, t = (s - cum[i]) / seg;
+      return [p[0] + (q[0] - p[0]) * t, p[1] + (q[1] - p[1]) * t, Math.atan2(q[1] - p[1], q[0] - p[0])];
+    };
+    a.at = at; a.L = L; a.offset = 0;
+    a.links = a.obj.children.filter((c) => c.isMesh).map((m) => {
+      let best = { d: Infinity };
+      for (let i = 0; i < n; i++) {
+        const p = P[i], q = P[(i + 1) % n], dx = q[0] - p[0], dy = q[1] - p[1], len2 = dx * dx + dy * dy || 1;
+        const t = Math.max(0, Math.min(1, ((m.position.x - p[0]) * dx + (m.position.y - p[1]) * dy) / len2));
+        const x = p[0] + dx * t, y = p[1] + dy * t, d = Math.hypot(m.position.x - x, m.position.y - y);
+        if (d < best.d) {
+          const ang = Math.atan2(dy, dx), nx = -Math.sin(ang), ny = Math.cos(ang);
+          best = { d, s: cum[i] + Math.sqrt(len2) * t, n: (m.position.x - x) * nx + (m.position.y - y) * ny, r: m.rotation.z - ang };
+        }
+      }
+      return { m, s: best.s, n: best.n, r: best.r };
+    });
+  }
+
+  // ---------- Animation ----------
+  const anim = { t: 0, fireT: 99, nextShow: 1.5, drive: 4, throttle: 0.7, gearUp: false, gear: 0, showcase: true };
+  const q = new THREE.Quaternion();
+  function fire() { anim.fireT = 0; }
+  function step(dt) {
+    anim.t += dt;
+    anim.fireT += dt;
+    if (anim.showcase && anim.t > anim.nextShow) { fire(); anim.nextShow = anim.t + 3.2; }
+    anim.gear += ((anim.gearUp ? 1 : 0) - anim.gear) * Math.min(1, dt * 2.2);
+    const drive = anim.drive;
+    for (const a of animated) {
+      const A = a.anim, o = a.obj;
+      switch (A.type) {
+        case "turret": {
+          const target = anim.showcase ? A.amount * Math.sin(anim.t * A.speed + A.phase) : 0;
+          a.angle += (target - a.angle) * Math.min(1, dt * 4);
+          o.quaternion.setFromAxisAngle(a.axis, a.angle); break;
+        }
+        case "wiggle": o.quaternion.setFromAxisAngle(a.axis, anim.showcase ? A.amount * Math.sin(anim.t * A.speed + A.phase) : 0); break;
+        case "recoil": {
+          const f = anim.fireT, k = f < 0.05 ? f / 0.05 : Math.max(0, 1 - (f - 0.05) / 0.55);
+          const e = k * k * (3 - 2 * k);
+          o.position.copy(a.rest).addScaledVector(a.axis, A.amount * e); break;
+        }
+        case "flash": {
+          const on = anim.fireT < 0.09;
+          o.visible = on;
+          if (on) o.scale.setScalar(0.8 + Math.random() * 0.45);
+          break;
+        }
+        case "roll": a.angle += drive * dt / A.radius; o.quaternion.setFromAxisAngle(a.axis, a.angle); break;
+        case "spin": {
+          const rate = A.byThrottle ? A.speed * (0.18 + 0.82 * anim.throttle) : A.speed;
+          a.angle += rate * dt; o.quaternion.setFromAxisAngle(a.axis, a.angle); break;
+        }
+        case "blink": o.visible = (((anim.t * A.rate + A.phase) % 1) + 1) % 1 < A.duty; break;
+        case "fold": {
+          const g = anim.gear;
+          o.quaternion.setFromAxisAngle(a.axis, A.amount * g);
+          o.scale.setScalar(1 - 0.8 * Math.max(0, (g - 0.55) / 0.45)); break;
+        }
+        case "flame": {
+          const k = (anim.throttle - 0.55) / 0.45;
+          o.visible = k > 0;
+          if (k > 0) { const s = (0.35 + 0.65 * k) * (0.88 + Math.random() * 0.24); o.scale.set(s, s, s); }
+          break;
+        }
+        case "track": {
+          a.offset += drive * dt;
+          for (const l of a.links) {
+            const [x, y, ang] = a.at(l.s + a.offset);
+            l.m.position.x = x - Math.sin(ang) * l.n;
+            l.m.position.y = y + Math.cos(ang) * l.n;
+            l.m.rotation.z = ang + l.r;
+          }
+          break;
+        }
+      }
+    }
+  }
+
+  function updateAnimCard() {
+    const types = new Set(animated.map((a) => a.anim.type));
+    $("animCard").hidden = types.size === 0;
+    $("fireBtn").hidden = !types.has("recoil") && !types.has("flash");
+    $("gearBtn").hidden = !types.has("fold");
+    $("driveRow").hidden = !types.has("roll") && !types.has("track");
+    $("throttleRow").hidden = !types.has("flame") && !animated.some((a) => a.anim.byThrottle);
+  }
+
+  // Point the camera, lights, shadow and grid at the model's size.
   function frame() {
-    const box = new THREE.Box3().setFromObject(group);
+    const box = new THREE.Box3().setFromObject(root);
     const size = box.getSize(new THREE.Vector3());
     const center = box.getCenter(new THREE.Vector3());
     const radius = Math.max(size.length() / 2, 0.1);
@@ -334,23 +555,24 @@ button.small { padding: 5px 9px; font-size: 12px; }
     ground.position.set(center.x, floorY, center.z);
     ground.scale.setScalar(radius * 8);
     if (grid) { scene.remove(grid); grid.geometry.dispose(); }
-    const gridSize = Math.max(2, Math.ceil(radius * 6));
-    grid = new THREE.GridHelper(gridSize, gridSize * 2);
+    const unit = Math.pow(10, Math.floor(Math.log10(radius))) / 2;
+    const gridSize = unit * Math.ceil((radius * 6) / unit);
+    grid = new THREE.GridHelper(gridSize, Math.min(200, Math.round(gridSize / unit)));
     grid.material.transparent = true;
-    grid.material.opacity = 0.6;
-    grid.position.set(center.x, floorY - 0.001, center.z);
+    grid.material.opacity = 0.55;
+    grid.position.set(center.x, floorY - radius * 0.001, center.z);
     scene.add(grid);
     applyTheme();
     controls.target.copy(center);
-    const dist = radius / Math.sin(THREE.MathUtils.degToRad(camera.fov / 2)) * 1.1;
-    camera.position.copy(center).add(new THREE.Vector3(1, 0.6, 1.25).normalize().multiplyScalar(dist));
-    camera.near = dist / 100; camera.far = dist * 20; camera.updateProjectionMatrix();
-    sun.position.copy(center).add(new THREE.Vector3(radius * 2, radius * 4, radius * 2.5));
+    const dist = radius / Math.sin(THREE.MathUtils.degToRad(camera.fov / 2)) * 1.05;
+    camera.position.copy(center).add(new THREE.Vector3(1, 0.55, 1.3).normalize().multiplyScalar(dist));
+    camera.near = dist / 200; camera.far = dist * 30; camera.updateProjectionMatrix();
+    sun.position.copy(center).add(new THREE.Vector3(radius * 2.2, radius * 4, radius * 1.6));
     sun.target.position.copy(center);
     const sc = sun.shadow.camera;
-    sc.left = sc.bottom = -radius * 2; sc.right = sc.top = radius * 2; sc.near = 0.01; sc.far = radius * 12;
+    sc.left = sc.bottom = -radius * 1.6; sc.right = sc.top = radius * 1.6; sc.near = radius * 0.5; sc.far = radius * 10;
     sc.updateProjectionMatrix();
-    rim.position.copy(center).add(new THREE.Vector3(-radius * 3, radius * 2, -radius * 3));
+    rim.position.copy(center).add(new THREE.Vector3(-radius * 3, radius * 1.5, -radius * 3));
   }
 
   function resize() {
@@ -362,7 +584,11 @@ button.small { padding: 5px 9px; font-size: 12px; }
   }
   new ResizeObserver(resize).observe(stageEl);
 
-  (function loop() {
+  let last = performance.now();
+  (function loop(now) {
+    const dt = Math.min(0.05, ((now || performance.now()) - last) / 1000);
+    last = now || performance.now();
+    if (root) step(dt);
     controls.update();
     renderer.render(scene, camera);
     requestAnimationFrame(loop);
@@ -370,18 +596,23 @@ button.small { padding: 5px 9px; font-size: 12px; }
 
   function renderParts(model) {
     const box = $("parts");
-    box.replaceChildren(...model.parts.map((p) => {
+    const rows = model.parts.slice(0, 400).map((p) => {
       const row = document.createElement("div");
       row.className = "part";
       const sw = document.createElement("i"); sw.style.background = p.color;
       const nm = document.createElement("span"); nm.textContent = p.name;
-      const sh = document.createElement("em"); sh.textContent = `${p.shape} · ${p.material}`;
+      const sh = document.createElement("em");
+      if (p.group) { const b = document.createElement("b"); b.textContent = p.group + " · "; sh.append(b); }
+      sh.append(`${p.shape} · ${p.material}`);
       row.append(sw, nm, sh);
       return row;
-    }));
+    });
+    if (model.parts.length > 400) { const more = document.createElement("p"); more.className = "empty"; more.textContent = `…and ${model.parts.length - 400} more`; rows.push(more); }
+    box.replaceChildren(...rows);
     $("partCount").textContent = `(${model.parts.length})`;
   }
 
+  // ---------- Controls ----------
   $("spinBtn").addEventListener("click", (e) => {
     controls.autoRotate = !controls.autoRotate;
     e.currentTarget.textContent = controls.autoRotate ? "Turntable on" : "Turntable off";
@@ -392,6 +623,20 @@ button.small { padding: 5px 9px; font-size: 12px; }
     if (prev) show(prev.model, prev.meta);
     $("undoBtn").disabled = history.length === 0;
   });
+  $("fireBtn").addEventListener("click", fire);
+  $("showBtn").addEventListener("click", (e) => {
+    anim.showcase = !anim.showcase;
+    e.currentTarget.textContent = anim.showcase ? "Showcase on" : "Showcase off";
+    e.currentTarget.setAttribute("aria-pressed", String(anim.showcase));
+  });
+  $("gearBtn").addEventListener("click", (e) => { anim.gearUp = !anim.gearUp; e.currentTarget.textContent = anim.gearUp ? "Gear down" : "Gear up"; });
+  $("drive").addEventListener("input", (e) => { anim.drive = +e.target.value; $("driveOut").textContent = `${anim.drive} m/s`; });
+  $("throttle").addEventListener("input", (e) => { anim.throttle = e.target.value / 100; $("throttleOut").textContent = `${e.target.value}%`; });
+  addEventListener("keydown", (e) => {
+    if (e.code !== "Space" || /^(TEXTAREA|INPUT|SELECT|BUTTON)$/.test(document.activeElement?.tagName)) return;
+    e.preventDefault(); fire();
+  });
+
   function remember() {
     if (!current) return;
     history.push({ model: current, meta: $("modelMeta").textContent });
@@ -407,19 +652,23 @@ button.small { padding: 5px 9px; font-size: 12px; }
   }
 
   // ---------- The AI ----------
-  const RULES = `You are a 3D modeling AI. You build objects out of simple primitive parts.
-Return ONLY JSON in this exact shape: {"name": string, "parts": [part, ...]}
-Each part: {"name": string, "shape": one of ${SHAPES.join("|")}, "size": [...], "position": [x,y,z], "rotation": [x,y,z] in degrees (optional), "scale": [x,y,z] (optional, use it to stretch spheres into ovals etc.), "color": "#rrggbb", "material": one of ${MATERIALS.join("|")}}
-Shape sizes:
-- box: [width, height, depth]
-- sphere: [radius]
-- cylinder: [radiusTop, radiusBottom, height], axis along Y
-- cone: [radius, height], tip pointing +Y
-- torus: [ringRadius, tubeRadius], ring lies in the X-Y plane (rotate x by 90 to lay it flat)
-- capsule: [radius, straightLength], axis along Y
-"position" is the CENTER of the part. Y is up. The object stands on the ground (its lowest point at y=0), is centered on x=0,z=0, faces +X, and is roughly 1 to 4 units tall.
-Make it look good: correct proportions, recognizable silhouette, parts that touch or overlap so nothing floats, mirrored pairs for symmetric details, 3 to 6 harmonious colors, glow for lights, glass for windows, metal for machinery.
-Use 15 to ${MAX_PARTS} parts: more parts for more detail.
+  const RULES = `You are a 3D modeling AI. You build objects out of primitive parts, and you can make parts move.
+Return ONLY JSON: {"name": string, "parts": [part, ...], "groups": [group, ...]}  ("groups" is optional)
+Part: {"name", "shape", "size", "position": [x,y,z], "rotation": [x,y,z] degrees (optional), "scale": [x,y,z] (optional), "color": "#rrggbb", "material", "group": group id (optional)}
+Shapes and sizes:
+- box: [width, height, depth]      - rbox: [width, height, depth, cornerRadius] (rounded box)
+- sphere: [radius]                 - capsule: [radius, straightLength], axis along Y
+- cylinder: [radiusTop, radiusBottom, height], axis along Y; optional "sides": 3-64 for faceted/hex shapes
+- cone: [radius, height], tip +Y; optional "sides"
+- torus: [ringRadius, tubeRadius], ring in the X-Y plane
+- hull: size [], plus "points": [[x,y,z], ...] (4-96 points, relative to position): the solid wrapping those points. Use it for sloped armour, wedges, hulls, fuselages, wings.
+Materials: matte, paint (painted metal), glossy, metal, rubber, glass, glow (lights).
+"position" is the part's CENTER. Y is up, the object faces +X, +Z is its right side. It stands on the ground (lowest point y=0), centered on x=0,z=0. Use real-world sizes in metres.
+Groups make parts move about a pivot: {"id", "pivot": [x,y,z], "parent": other group id (optional, it then rides on that group), "anim": {...}}
+anim types: turret (sways about axis, amount=radians), recoil (slides along axis by amount when firing), flash (shows briefly when firing; muzzle flashes), roll (wheels; axis [0,0,-1], radius), spin (axis, speed rad/s; propellers, radar, rotors), blink (lights; rate per second, duty 0-1), fold (landing gear; axis, amount radians), wiggle (sways back and forth: axis, amount, speed; flaps, tails, fins).
+Part positions are always in model coordinates; the pivot is where the group turns.
+Make it look good: correct proportions, recognizable silhouette, parts touching so nothing floats, mirrored pairs, 3 to 6 harmonious colors, glow for lights, glass for windows.
+Use 20 to 250 parts: more parts for more detail.
 Designs must be original: if asked for a trademarked character or product, make an original design inspired by the general idea instead.`;
 
   let sample = null, aborter = null, refBlob = null;
@@ -428,10 +677,11 @@ Designs must be original: if asked for a trademarked character or product, make 
     const ask = $("prompt").value.trim();
     if (!ask) { setStatus("Type what you want first.", true); return; }
     if (!sample) { setStatus("The AI isn't available in this view. Open this page on claude.ai while signed in.", true); return; }
-    const tier = $("detail").value;
     let input = `${RULES}\n\n`;
     if (mode === "edit" && current) {
-      input += `Here is the current model:\n${JSON.stringify(current)}\n\nChange it like this: ${ask}\nKeep everything else the same and return the FULL updated model.`;
+      const cur = JSON.stringify(current);
+      if (cur.length > 150000) { setStatus("This model is too big for the AI to edit in one go. Try making a new one.", true); return; }
+      input += `Here is the current model:\n${cur}\n\nChange it like this: ${ask}\nKeep everything else the same and return the FULL updated model, groups included.`;
     } else {
       input += `Build this: ${ask}`;
     }
@@ -443,7 +693,7 @@ Designs must be original: if asked for a trademarked character or product, make 
     try {
       const opts = {
         signal: aborter.signal,
-        modelTier: tier,
+        modelTier: $("detail").value,
         cache: false,
         onText: ({ text }) => {
           const n = (text.match(/"shape"/g) || []).length;
@@ -510,7 +760,7 @@ Designs must be original: if asked for a trademarked character or product, make 
       $("saveBtn").textContent = "Saved";
       setTimeout(() => { $("saveBtn").textContent = "Save to shelf"; }, 1500);
     } catch (e) {
-      setStatus(e && e.code === "too_large" ? "That model is too big to save." : "Couldn't save. You may not have permission to add to this shelf.", true);
+      setStatus(e && e.code === "too_large" ? "That model is too big to save to the shelf. Export it instead." : "Couldn't save. You may not have permission to add to this shelf.", true);
     } finally {
       $("saveBtn").disabled = false;
     }
@@ -560,16 +810,29 @@ Designs must be original: if asked for a trademarked character or product, make 
     catch (e) { if (e && e.code !== "declined") setStatus(`Couldn't export ${filename}: ${e.message || e.code}`, true); }
   }
   const fileBase = () => (current ? current.name : "model").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "model";
-  $("glbBtn").addEventListener("click", () => {
-    new THREE.GLTFExporter().parse(group, (glb) => save(`${fileBase()}.glb`, glb),
-      (err) => setStatus(`Export failed: ${err.message || err}`, true), { binary: true });
-  });
-  $("objBtn").addEventListener("click", () => save(`${fileBase()}.obj`, new THREE.OBJExporter().parse(group)));
+  // Export at rest: flashes and lamps visible, nothing mid-animation.
+  function atRest(fn) {
+    const saved = animated.map((a) => ({ a, p: a.obj.position.clone(), q: a.obj.quaternion.clone(), s: a.obj.scale.clone(), v: a.obj.visible }));
+    for (const a of animated) { if (a.anim.type !== "track") { a.obj.position.copy(a.rest); a.obj.quaternion.identity(); a.obj.scale.setScalar(1); } a.obj.visible = a.anim.type !== "flash" && a.anim.type !== "flame"; }
+    try { return fn(); } finally { for (const s of saved) { s.a.obj.position.copy(s.p); s.a.obj.quaternion.copy(s.q); s.a.obj.scale.copy(s.s); s.a.obj.visible = s.v; } }
+  }
+  $("glbBtn").addEventListener("click", () => atRest(() => new THREE.GLTFExporter().parse(root, (glb) => save(`${fileBase()}.glb`, glb),
+    (err) => setStatus(`Export failed: ${err.message || err}`, true), { binary: true, onlyVisible: true })));
+  $("objBtn").addEventListener("click", () => save(`${fileBase()}.obj`, atRest(() => new THREE.OBJExporter().parse(root))));
   $("jsonBtn").addEventListener("click", () => save(`${fileBase()}.json`, JSON.stringify(current, null, 2)));
 
   // ---------- Start ----------
   show(clean(EXAMPLE), "example model");
   resize();
+  // used by local tests: load a model, and look from an angle (degrees) at a zoom factor
+  window.__forge = {
+    show: (m) => show(clean(m), "test"), clean,
+    view: (az, el, zoom = 1) => {
+      const t = controls.target, d = camera.position.distanceTo(t) / zoom, a = THREE.MathUtils.degToRad(az), e = THREE.MathUtils.degToRad(el);
+      camera.position.set(t.x + d * Math.cos(e) * Math.cos(a), t.y + d * Math.sin(e), t.z + d * Math.cos(e) * Math.sin(a));
+      controls.update();
+    },
+  };
 
   // Wait (up to 10 s) for the claude.ai viewer to provide window.claude, then ask for a capability.
   const viewer = new Promise((resolve) => {
