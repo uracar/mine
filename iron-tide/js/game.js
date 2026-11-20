@@ -917,7 +917,9 @@ function makeTreeMeshes(){
    bough(tree,sx,sy,sz,tx,ty,tz,.03);ellipsoid(tree,tx,ty+.02,tz,.075+.03*hsh(i,k,5),.04,.075+.03*hsh(k,i,6),30+i*3+k,.55,8,4,1);}}
  vines(tree,24,.15,.5,.68);
  trunk(low,7,[0,.1,.4,.74],.35);
- ellipsoid(low,0,.66,0,.56,.13,.56,1,.3,12,5,1);ellipsoid(low,0,.8,0,.38,.11,.38,2,.3,10,4,1);ellipsoid(low,0,.92,0,.18,.06,.18,3,.3,8,4,1);   // v5.2 layered umbrella
+ // v6.5 a rounded, lumpy crown (the old one was three flat slabs that read as a disc on a pole from afar)
+ ellipsoid(low,0,.7,0,.5,.2,.5,1,.45,12,6,1);ellipsoid(low,0,.84,0,.34,.15,.34,2,.4,10,5,1);ellipsoid(low,0,.94,0,.16,.07,.16,3,.3,8,4,1);
+ for(let i=0;i<5;i++){const a=i/5*6.2832+.4;ellipsoid(low,Math.cos(a)*.36,.66+.05*(i%2),Math.sin(a)*.36,.2,.12,.2,30+i,.45,8,4,1);}
  ellipsoid(rock,0,.28,0,.5,.34,.5,11,.45,14,7,1);
  return [tree,low,rock].map(uploadMesh);
 }
@@ -2167,7 +2169,7 @@ function renderOps(){
 window.__contracts={get contract(){return contract;},conOffers,conAccept,conClear,contractStep,contractDock,conComplete,get done(){return conDone;}};
 
 // ---------- the game around the world: home screen, HUD, pause and settings, fuel and hull, harbours and the port screen, saving ----------
-const GAME_TITLE='IRON TIDE',GAME_VERSION='v6.5';
+const GAME_TITLE='IRON TIDE',GAME_VERSION='v6.6';
 try{document.getElementById('load').textContent='LOADING WORLD… '+GAME_VERSION;}catch(e){}
 const SAVE_KEY='irontide.save.v1';
 const BURN_IDLE=.00004,BURN_AHEAD=.00048;                 // fuel (0..1) per second; flank speed burns 2.5 times the ahead rate
@@ -3347,7 +3349,7 @@ function tutMaybeStart(){
 window.__pilot={get profile(){return profile;},cloud,theatre,tut,tutStart,tutEnd,showSignup,cloudPush,TUT,get shots(){return shotsFired;}};
 
 window.__game={game,openGarage,garage,garageType,renderGarage,previewVehicle,deployFromGarage,setWater(m){waterMode=m;},tp(x,z,hd){player.x=x;player.z=z;if(hd!==undefined)player.hd=hd;player.v=0;},refreshPort,dockCandidate,startDock,callTug,newVoyage,startService,setPortTab,castOff,portName,saveGame,loadGame,hasSave,get state(){return game.state;}};
-window.__dev={treeList:()=>{const o=[];for(const [id,n] of NODE){try{const sp=nodeSpec(n),st=vehicleStats(sp),M=MESHES[n.type](sp);let y0=1e9,y1=-1e9;for(let i=1;i<M.P.length;i+=3){y0=Math.min(y0,M.P[i]);y1=Math.max(y1,M.P[i]);}const c=k=>M.parts.filter(d=>d.kind===k).length,guns=M.parts.filter(d=>d.kind==='flash').map(d=>(d.bz||[0]).length);
+window.__dev={forestAt:(x,z)=>forestAt(x,z),treeList:()=>{const o=[];for(const [id,n] of NODE){try{const sp=nodeSpec(n),st=vehicleStats(sp),M=MESHES[n.type](sp);let y0=1e9,y1=-1e9;for(let i=1;i<M.P.length;i+=3){y0=Math.min(y0,M.P[i]);y1=Math.max(y1,M.P[i]);}const c=k=>M.parts.filter(d=>d.kind===k).length,guns=M.parts.filter(d=>d.kind==='flash').map(d=>(d.bz||[0]).length);
  o.push({id,tt:n.tt2?2:1,tier:n.t,type:n.type,name:n.name,role:n.role,length:+st.length.toFixed(1),beam:+st.beam.toFixed(1),height:+(y1-y0).toFixed(1),turrets:c('turret'),guns,radars:c('radar'),props:c('prop'),forge:M.forge||''});}catch(e){o.push({id,err:e.message});}}return o;},ff:d=>{const n=shells.length;fireFromPart(d);return [n,shells.length,shells.slice(-1).map(q=>[q.x|0,q.y|0,q.z|0,q.vx|0,q.vy|0,q.vz|0,q.life])];},sb:d=>{const G=gunShot(d);return [shotBlocked(G),gunLob(G),game.state,d.shot,pa.fireT];},pp:()=>pParts,gs:d=>gunShot(d),aiKinds:()=>({tank:aiTankKinds('L4d'),hover:aiTankKinds('VRK-T1R'),ship:foeShipKind('S4a'),plane:aiPlaneKind('A5a')}),allNodes:()=>{const out=[];for(const [id,n] of NODE){try{const sp=nodeSpec(n),M=MESHES[n.type](sp);let bad=0;for(const v of M.P)if(!isFinite(v)){bad++;break;}out.push([id,n.type,M.P.length/9|0,M.parts.length,bad?'NaN':'',M.forge||'']);}catch(e){out.push([id,n.type,0,0,'ERR '+e.message]);}}return out;},setVehicle:s=>setVehicle(s),nodeSpec:n=>nodeSpec(typeof n==='string'?NODE.get(n):n),get VS(){return VS;},aiu:k=>{const u=KIND_AIU.get(k);if(!u)return null;let n=0;for(let i=4;i<u[2].length;i+=4)if(u[2][i+3]===5)n++;return n;},parts:()=>pParts.map(d=>d.kind),giants:()=>{const o=[];for(const R of giantRegions.values())for(const g of R.giants)o.push([g.x,g.y,g.z,g.height,g.crown]);return o;}};   // test hooks (screenshots, checks)
 
 // ---------- roads: a ribbon laid on the ground along every route near the camera ----------
@@ -10613,7 +10615,8 @@ UNIT.BOMB=unitList.length;unitList.push([]);UNIT_DRAW_R.push(30000);
 // limbs that carry the crown out, crowns made of hundreds of folded leaves with a pale midrib, hanging vines - plus a tall frond tree,
 // an understory fan tree, and ferns, broad leaves and spiral plants on the floor. Every kind has a cheap stand-in for the distance.
 // Mesh part codes for the plant shader: 0 bark, 2.xx leaf (the fraction runs across the leaf, .5 is the midrib), 3.xx flower. ----
-const PD={bark:[.20,.17,.15],barkD:[.13,.11,.11],barkG:[.16,.18,.15],l1:[.07,.25,.20],l2:[.05,.20,.24],l3:[.10,.30,.17],l4:[.04,.16,.15],
+// v6.5 natural colours: brown-grey bark (it read as black) and real leaf greens (they were dark blue-teal); the Pandora purples stay rare
+const PD={bark:[.31,.26,.21],barkD:[.22,.18,.15],barkG:[.27,.27,.22],l1:[.11,.28,.13],l2:[.08,.24,.15],l3:[.15,.33,.12],l4:[.07,.20,.10],
  purp:[.25,.12,.30],mag:[.42,.14,.34],vine:[.07,.19,.14],orng:[.62,.24,.10]};
 const pdJ=(c,k,s)=>{const r=hsh(k,s,91)-.5,g=hsh(s,k,92)-.5;return [Math.max(0,c[0]*(1+r*.3)),Math.max(0,c[1]*(1+g*.25)),Math.max(0,c[2]*(1+(r+g)*.2))];};
 // a tube along path(t) with radius rad(t,theta); frames are carried along the path so a bending limb does not twist
@@ -10682,8 +10685,10 @@ function pdUmbrellaM(hi){const M=mesh(),H=50,tw=hsh(3,4,5);
  if(hi){
   ends.forEach((e,i)=>{pdMass(M,e[0],e[1]+.5,e[2],5.6,1.8,5.6,i,6,3,pdJ(PD.l4,i,2));pdCluster(M,e,9,5.4,1.3,i*7+1,[PD.l1,PD.l2,PD.l3],0);});
   for(let i=0;i<10;i++){const e=ends[i%ends.length],a=i*2.4,r=2+4*hsh(i,5,5);pdVine(M,e[0]+Math.cos(a)*r,e[1]-.6,e[2]+Math.sin(a)*r,4+11*hsh(i,6,6),pdJ(PD.vine,i,3));}
- }else{
-  pdMass(M,0,H*.87,0,15,3.6,15,1,7,3,PD.l4);for(let i=0;i<4;i++){const e=ends[i*2];pdMass(M,e[0],e[1]+1,e[2],6.5,2.4,6.5,i+3,5,2,pdJ(i%2?PD.l1:PD.l2,i,1));}
+ }else{                                                        // v6.5 the far stand-in: limbs carrying a rounded crown of clumps (it was a flat disc on a pole)
+  for(let i=0;i<3;i++){const e=ends[i*2+1],s=[top[0]*.8,top[1]-5,top[2]*.8];pdTube(M,t=>[s[0]+(e[0]-s[0])*t,s[1]+(e[1]-s[1])*Math.sin(t*1.5708),s[2]+(e[2]-s[2])*t],t=>.8-.4*t,3,1,PD.bark,0);}
+  pdMass(M,0,H*.88,0,9,5.2,9,1,7,4,pdJ(PD.l4,1,1));
+  for(let i=0;i<6;i++){const e=ends[i];pdMass(M,e[0]*.85,e[1]+.5+1.5*hsh(i,3,7),e[2]*.85,6+1.5*hsh(i,4,7),3.6+1.2*hsh(i,5,7),6+1.5*hsh(i,6,7),i+3,5,3,pdJ([PD.l1,PD.l3,PD.l2][i%3],i,1));}
  }
  return M;}
 // ---- the strangler: several trunks winding round each other, huge fins, a tall rounded crown ----
@@ -10695,7 +10700,8 @@ function pdRootM(hi){const M=mesh(),H=46;
  ends.push([0,H*.95,0]);
  if(hi){ends.forEach((e,i)=>{pdMass(M,e[0],e[1],e[2],5.8,3.4,5.8,i+11,6,3,pdJ(PD.l4,i,4));pdCluster(M,[e[0],e[1]+1.5,e[2]],8,5,1.4,i*5+3,[PD.l3,PD.l1,PD.l4],0);});
   for(let i=0;i<10;i++){const e=ends[i%6],a=i*2.1,r=2+4.5*hsh(i,9,9);pdVine(M,e[0]+Math.cos(a)*r,e[1]-1.5,e[2]+Math.sin(a)*r,6+16*hsh(i,8,1),pdJ(PD.vine,i,5));}}
- else{pdMass(M,0,H*.86,0,13,6,13,2,7,3,PD.l4);for(let i=0;i<3;i++){const e=ends[i*2];pdMass(M,e[0],e[1]+1,e[2],6,3.2,6,i+20,5,2,pdJ(i%2?PD.l3:PD.l1,i,2));}}
+ else{for(let i=0;i<3;i++){const e=ends[i*2],a=i/3*6.2832+.5;pdTube(M,t=>[Math.cos(a)*1.5*(1-t)+e[0]*t,H*.66+(e[1]-H*.66)*Math.sin(t*1.5708),Math.sin(a)*1.5*(1-t)+e[2]*t],t=>.8-.4*t,3,1,PD.bark,0);}   // v6.5 limbs and a tall rounded crown
+  pdMass(M,0,H*.88,0,9,7,9,2,7,4,pdJ(PD.l4,2,2));for(let i=0;i<5;i++){const e=ends[i];pdMass(M,e[0]*.85,e[1]+.5,e[2]*.85,5.5,4.2,5.5,i+20,5,3,pdJ([PD.l3,PD.l1,PD.l2][i%3],i,2));}}
  return M;}
 // ---- the frond tree: tall, slim and ringed, a spiral head of long drooping fronds ----
 function pdSpiralM(hi){const M=mesh(),H=50;
@@ -10706,7 +10712,7 @@ function pdSpiralM(hi){const M=mesh(),H=50;
 function pdFanM(hi){const M=mesh(),H=20;
  pdTube(M,t=>[Math.sin(t*1.8)*2.2,-2+t*(H*.8+2),Math.cos(t*1.3)*.6-.6],t=>.6-.28*t,hi?5:3,hi?4:1,PD.barkG,0);
  const c=[Math.sin(1.8)*2.2,H*.8,Math.cos(1.3)*.6-.6],n=hi?10:5;
- for(let i=0;i<n;i++){const a=i/n*6.2832+.2*hsh(i,3,3);pdFrond(M,c,a,.8+.3*hsh(i,4,4),7+2*hsh(i,5,5),2.1,2.3,pdJ(i%5===0?PD.mag:i%2?PD.l2:PD.l3,i,8),hi?3:2,0);}
+ for(let i=0;i<n;i++){const a=i/n*6.2832+.2*hsh(i,3,3);pdFrond(M,c,a,.8+.3*hsh(i,4,4),7+2*hsh(i,5,5),2.1,2.3,pdJ(i%9===0?PD.mag:i%2?PD.l2:PD.l3,i,8),hi?3:2,0);}
  return M;}
 // ---- the forest floor: ferns with curled tips, broad leaves and the odd orange spiral plant ----
 function pdFloorM(hi){const M=mesh();

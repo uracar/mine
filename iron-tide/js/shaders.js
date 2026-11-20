@@ -849,7 +849,7 @@ uniform vec3 uShel[4];         // calm water inside harbours: centre xz and radi
 uniform vec4 uShip[8];         // v4.3 hulls pushing the water aside (90_sea.js)
 uniform sampler2D uShore;      // swell factor by depth around the camera (04_shore.js): 0 on and above the shore, 1 in deep water
 uniform vec3 uShoreO;          // grid origin xz and 1 / extent
-out vec3 vRel; out vec3 vN; out float vCrest; out vec2 vW; out float vLogW; out float vSh;
+out vec3 vRel; out vec3 vN; out float vCrest; out vec2 vW; out float vLogW; out float vSh; out float vDeep;
 float shoreK(vec2 w){
  vec2 uv=(w-uShoreO.xy)*uShoreO.z;
  if(uv.x<=0.||uv.y<=0.||uv.x>=1.||uv.y>=1.)return 1.;
@@ -886,7 +886,7 @@ void main(){
  A[0]=5.6;A[1]=4.;A[2]=2.4;A[3]=1.1;A[4]=.6;A[5]=.3;A[6]=.15;
  float sh=0.;
  for(int j=0;j<4;j++){if(uShel[j].z>0.){float dd=length(wxz-uShel[j].xy);sh=max(sh,1.-smoothstep(uShel[j].z*.55,uShel[j].z,dd));}}
- float gain=(.3+.7*pow(clamp(uWind,0.,1.),1.6))*(1.-.65*sh)*shoreK(wxz);
+ float sk=shoreK(wxz),gain=(.3+.7*pow(clamp(uWind,0.,1.),1.6))*(1.-.65*sh)*sk;
  for(int i=0;i<NW;i++){
   float fi=float(i);
   float ang=.45+fi*.83+.6*sin(fi*2.1);
@@ -908,11 +908,11 @@ void main(){
  {float s0=shipWake(wxz,spacing);if(s0!=0.){float sx=shipWake(wxz+vec2(.7,0.),spacing),sz=shipWake(wxz+vec2(0.,.7),spacing);P.y+=s0;dN.x-=(sx-s0)/.7;dN.z-=(sz-s0)/.7;jac+=max(0.,s0-.25)*.18;}}
  vec3 N=normalize(vec3(dN.x*2.3,max(dN.y,.2),dN.z*2.3));   // slopes exaggerated a little so the swell is readable from far away
  vRel=vec3(uCenterRel.x+aPos.x+P.x,P.y-uCam.y,uCenterRel.y+aPos.y+P.z);
- vN=N;vCrest=jac;vW=wxz;vSh=sh;
+ vN=N;vCrest=jac;vW=wxz;vSh=sh;vDeep=sk;
  vec4 clip=uVP*vec4(vRel,1.);vLogW=1.+clip.w;gl_Position=clip;
 }`;
 const WATER_FS=GLSL_HEAD+GLSL_COMMON+`
-in vec3 vRel; in vec3 vN; in float vCrest; in vec2 vW; in float vLogW; in float vSh;
+in vec3 vRel; in vec3 vN; in float vCrest; in vec2 vW; in float vLogW; in float vSh; in float vDeep;
 uniform float uWind;
 uniform float uRain;
 out vec4 oCol;
@@ -925,9 +925,10 @@ void main(){
  vec2 p1=vW*.85+vec2(uTime*.6,uTime*.35),p2=vW*2.3-vec2(uTime*.5,-uTime*.45),p3=vW*6.1+vec2(uTime*.9,-uTime*.7);
  float e=.08;
  float n1=vnoise(p1),n2=vnoise(p2),n3=vnoise(p3);
+ // v6.5 each octave fades out before its ripples shrink below a pixel, so distant water no longer shimmers into hairlines
  vec2 gr=vec2(vnoise(p1+vec2(e,0.))-n1,vnoise(p1+vec2(0.,e))-n1)/e*.05
-        +vec2(vnoise(p2+vec2(e,0.))-n2,vnoise(p2+vec2(0.,e))-n2)/e*.03
-        +vec2(vnoise(p3+vec2(e,0.))-n3,vnoise(p3+vec2(0.,e))-n3)/e*.015;
+        +vec2(vnoise(p2+vec2(e,0.))-n2,vnoise(p2+vec2(0.,e))-n2)/e*.03*(1.-smoothstep(40.,260.,dist))
+        +vec2(vnoise(p3+vec2(e,0.))-n3,vnoise(p3+vec2(0.,e))-n3)/e*.015*(1.-smoothstep(15.,90.,dist));
  // broader chop that stays visible out to the horizon, so the sea breaks up the reflected sky instead of mirroring it flat
  vec2 p0=vW*.11+vec2(uTime*.35,-uTime*.2);float n0=vnoise(p0);
  vec2 g0=vec2(vnoise(p0+vec2(.1,0.))-n0,vnoise(p0+vec2(0.,.1))-n0)/.1*.075*(.5+uWind);
@@ -940,34 +941,47 @@ void main(){
   float d=length(f-off),ring=smoothstep(.07,.0,abs(d-ph*.55))*(1.-ph)*step(hh,uRain*.8);
   N=normalize(N+vec3(normalize(f-off+1e-4)*ring*.5,0.).xzy*(1.-smoothstep(40.,260.,dist)));
  }
- float ndv=clamp(dot(N,V),0.,1.);
+ // v6.5 the Fresnel term uses a calmer normal than the shading: the swell's slopes are exaggerated so it reads from afar, and with the full
+ // slope the backs of the waves turned into white mirrors of the hazy sky
+ float ndv=clamp(dot(normalize(mix(N,vec3(0.,1.,0.),.5)),V),0.,1.);
  float fres=.02+.98*pow(clamp(1.-ndv,0.,1.),5.);
- vec3 R=reflect(-V,N);R.y=abs(R.y);
+ vec3 R=reflect(-V,N);R.y=max(abs(R.y),.04);
  vec3 refl=skyBase(normalize(R));
  // the sun and its glitter path
+ // v6.5 sun glitter: the highlight follows a calmer normal (the exaggerated swell smeared it into white blobs over whole wave faces)
+ // and the broad part of it is broken into sparkles by the ripples, like real glitter on the sea
  vec3 Hh=normalize(uLightDir+V);
- float nh=max(dot(N,Hh),0.);
- vec3 spec=uLightCol*(pow(nh,900.)*28.+pow(nh,140.)*1.4+pow(nh,18.)*.08)*smoothstep(-.02,.06,uLightDir.y);
+ vec3 Ns=normalize(mix(N,vec3(0.,1.,0.),.4));
+ float nh=max(dot(Ns,Hh),0.),glit=mix(1.,smoothstep(.45,.8,n2*.6+n3*.4),rf);
+ vec3 spec=uLightCol*(pow(nh,900.)*24.+pow(nh,220.)*1.1*glit+pow(nh,24.)*.025)*smoothstep(-.02,.06,uLightDir.y);
  spec=spec/(1.+spec*.22);
  // body colour: the open sea shifts between teal and navy over long distances, waves facing the sun glow, crests let light through
+ // v6.5 realistic sea colour: deep water is a dark blue that only goes green-teal where light passes through a crest;
+ // turquoise is kept for the shallows near the coast (vDeep: 0 at the shore, 1 in deep water)
  float patchN=vnoise(vW*.0005+3.)*.6+vnoise(vW*.0021+9.)*.4;
- vec3 deep=mix(lin(vec3(.004,.075,.19)),lin(vec3(.008,.15,.25)),patchN),turq=mix(lin(vec3(.02,.36,.38)),lin(vec3(.04,.46,.40)),patchN);
+ vec3 deep=mix(lin(vec3(.006,.05,.115)),lin(vec3(.01,.075,.14)),patchN),mid=lin(vec3(.012,.13,.18)),shal=mix(lin(vec3(.04,.36,.36)),lin(vec3(.07,.42,.38)),patchN);
+ vec3 turq=mix(lin(vec3(.02,.24,.25)),shal,1.-smoothstep(.15,.6,vDeep));
+ deep=mix(shal,mix(mid,deep,smoothstep(.45,1.,vDeep)),smoothstep(.05,.5,vDeep));
  float crestK=clamp(vCrest*1.2+.1,0.,1.);
  float face=pow(clamp(dot(N,uLightDir)*.5+.5,0.,1.),2.2);          // slopes turned towards the sun are brighter, so the swell reads
- vec3 body=mix(deep,turq,crestK*.75+.1+face*.25);
+ vec3 body=mix(deep,turq,crestK*.4+face*.12);
  float sun=max(uLightDir.y,0.);
  float sss=pow(max(dot(V,-uLightDir)*.5+.5,0.),4.)*smoothstep(0.,.5,vCrest+.2)*sun;
  body=body*(uAmbUp*1.1+uLightCol*sun*(.05+.9*face))+turq*uLightCol*sss*.45;
- refl*=mix(vec3(1.),lin(vec3(.80,.92,1.)),.35)*.82;
+ refl*=mix(vec3(1.),lin(vec3(.80,.92,1.)),.35)*.78;
  vec3 col=mix(body,refl,fres*.92)+spec;
  // foam on the crests, torn by noise
- float fn=vnoise(vW*1.1+uTime*.2)*.45+vnoise(vW*3.7-uTime*.3)*.33+vnoise(vW*10.+uTime*.1)*.22;
- float far=1.-smoothstep(500.,2600.,dist);
- float foam=smoothstep(.0,.3,vCrest+uWind*.18-vSh*.6-.52+(fn-.5)*1.0)*far;
+ // v6.5 whitecaps: only the sharpest crests break, into small torn patches with a lace of old foam around them - no milky blobs
+ float fn=vnoise(vW*.35+uTime*.12)*.4+vnoise(vW*1.3-uTime*.25)*.35+vnoise(vW*4.1+uTime*.1)*.25;
+ float far=1.-smoothstep(400.,2200.,dist);
+ float cap=vCrest+uWind*.16-vSh*.6-.66;
+ float foam=smoothstep(.0,.18,cap+(fn-.5)*.7)*far;
+ float lace=smoothstep(.55,.72,vnoise(vW*2.2+vec2(uTime*.15,0.))*.6+vnoise(vW*6.3-uTime*.2)*.4)*smoothstep(-.25,.05,cap+(fn-.5)*.5)*(1.-smoothstep(60.,700.,dist));
+ foam=max(foam*(.55+.45*smoothstep(.35,.65,fn)),lace*.45);
  vec2 wd=vec2(.9,.435),wp=vec2(-.435,.9);
- float streak=smoothstep(.6,.85,vnoise(vec2(dot(vW,wd)*.012,dot(vW,wp)*.33)+uTime*.03))*smoothstep(.5,.95,uWind)*(1.-smoothstep(300.,2200.,dist))*(1.-vSh);   // wind-blown streaks along the sea
- foam=max(foam,streak*.5*smoothstep(.35,.7,fn));
- col=mix(col,(uAmbUp*1.5+uLightCol*.5*max(uLightDir.y,.1))*vec3(.95,1.,1.),foam*.7);
+ float streak=smoothstep(.7,.9,vnoise(vec2(dot(vW,wd)*.012,dot(vW,wp)*.09)+uTime*.03))*smoothstep(.6,.98,uWind)*(1.-smoothstep(120.,650.,dist))*(1.-vSh);   // wind-blown foam streaks, close by only (far away they alias into hairlines)
+ foam=max(foam,streak*.22*smoothstep(.4,.7,fn));
+ col=mix(col,(uAmbUp*1.2+uLightCol*.42*max(uLightDir.y,.1))*vec3(.93,.97,.98),clamp(foam,0.,1.)*.75);
  float fa=fogAmount(dist)*.7;
  col=mix(col,fogColor(-V),fa);
  float alpha=mix(.92,1.,smoothstep(0.,3500.,dist));

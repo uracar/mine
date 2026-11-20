@@ -27,7 +27,7 @@ remembers why it started. They just keep fighting.
 ## World and maps
 | | Item | Status |
 |---|---|---|
-| | Trees need better models; the world should feel like Pandora (Avatar) | 🔨 v5.2 glow at night, umbrella LOD · v5.3 realistic: natural greens, ragged leafy outlines with gaps, sun/shade leaf masses, forked boughs; ordinary trees get ragged leaf edges too |
+| | Trees need better models; the world should feel like Pandora (Avatar) — v6.6: distant trees are rounded clumped crowns on limbs (were flat discs on poles), natural leaf greens and brown bark, giants rounded too; Shape Forge tree set requested from the modelling session | 🔨 v5.2 glow at night, umbrella LOD · v5.3 realistic: natural greens, ragged leafy outlines with gaps, sun/shade leaf masses, forked boughs; ordinary trees get ragged leaf edges too |
 | | Battles are hard to find / not fun — there should be cities and military outposts to fight over | 🔨 v5.6 **battle finder**: the nearest battle your side is in is always on screen (marker + distance + direction); **H** drops you into it in your vehicle; the deploy menu lists live battles first; when nothing is within 12 km a local battle starts, fought for a town |
 | | Front lines are real fronts: 50–100 km wide with a no-man's-land, "not some small little trench" | ⬜ |
 | | Bigger maps with more cities | ⬜ |
@@ -57,7 +57,7 @@ remembers why it started. They just keep fighting.
 | | Better lighting | ✅ sun shadows (v5.1) |
 | | Getting hit: a small flash, not a whole fireball | ✅ v5.5: blasts on your own vehicle are a small flash + puff; PvP hits toned down |
 | | Dust, fire, explosions, smoke at the same quality as the water — real smoke and fire | ⬜ |
-| | Improved water | ⬜ |
+| | Improved water | ✅ v6.6 realistic sea: deep blue offshore, turquoise only in the shallows, small broken whitecaps (no milky blobs), sparkling sun glitter, no shimmering hairlines in the distance |
 | | Detailed models | 🔨 v6.5 **real 3D models from Shape Forge** (the Shelf): js/models.js holds them, forgeMesh() in game.js imports them part by part with working moving parts. In the game now: Vanguard L4d (and TT2 VRK-T1R hover tank) = Medium Tank, Trident S4a = Destroyer, Adder A5a (and TT2 ZAR) = Strike Fighter. Add more by putting the model in js/models.js and its node in FORGE_USE. |
 | | Less lag / smooth | 🔨 v5.0 shader + governor fixes; needs Chromebook test |
 
