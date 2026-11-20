@@ -9,7 +9,7 @@
  fetch('js/terrain.js').then(r=>{if(!r.ok)throw new Error('Could not load js/terrain.js');return r.text();}).then(src=>{
   const t=document.createElement('script');t.id='terrainsrc';t.type='text/plain';t.textContent=src;document.body.appendChild(t);
   return loadScript('js/shaders.js');
- }).then(()=>loadScript('js/game.js')).catch(fail);
+ }).then(()=>loadScript('js/models.js')).then(()=>loadScript('js/game.js')).catch(fail);
  if('serviceWorker' in navigator&&location.protocol==='https:'){
   addEventListener('load',()=>navigator.serviceWorker.register('sw.js').catch(()=>{}));
  }

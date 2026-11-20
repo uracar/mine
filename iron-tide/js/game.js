@@ -2167,7 +2167,7 @@ function renderOps(){
 window.__contracts={get contract(){return contract;},conOffers,conAccept,conClear,contractStep,contractDock,conComplete,get done(){return conDone;}};
 
 // ---------- the game around the world: home screen, HUD, pause and settings, fuel and hull, harbours and the port screen, saving ----------
-const GAME_TITLE='IRON TIDE',GAME_VERSION='v6.4';
+const GAME_TITLE='IRON TIDE',GAME_VERSION='v6.5';
 try{document.getElementById('load').textContent='LOADING WORLD… '+GAME_VERSION;}catch(e){}
 const SAVE_KEY='irontide.save.v1';
 const BURN_IDLE=.00004,BURN_AHEAD=.00048;                 // fuel (0..1) per second; flank speed burns 2.5 times the ahead rate
@@ -3347,7 +3347,7 @@ function tutMaybeStart(){
 window.__pilot={get profile(){return profile;},cloud,theatre,tut,tutStart,tutEnd,showSignup,cloudPush,TUT,get shots(){return shotsFired;}};
 
 window.__game={game,openGarage,garage,garageType,renderGarage,previewVehicle,deployFromGarage,setWater(m){waterMode=m;},tp(x,z,hd){player.x=x;player.z=z;if(hd!==undefined)player.hd=hd;player.v=0;},refreshPort,dockCandidate,startDock,callTug,newVoyage,startService,setPortTab,castOff,portName,saveGame,loadGame,hasSave,get state(){return game.state;}};
-window.__dev={setVehicle:s=>setVehicle(s),nodeSpec:n=>nodeSpec(typeof n==='string'?NODE.get(n):n),get VS(){return VS;},aiu:k=>{const u=KIND_AIU.get(k);if(!u)return null;let n=0;for(let i=4;i<u[2].length;i+=4)if(u[2][i+3]===5)n++;return n;},parts:()=>pParts.map(d=>d.kind),giants:()=>{const o=[];for(const R of giantRegions.values())for(const g of R.giants)o.push([g.x,g.y,g.z,g.height,g.crown]);return o;}};   // test hooks (screenshots, checks)
+window.__dev={ff:d=>{const n=shells.length;fireFromPart(d);return [n,shells.length,shells.slice(-1).map(q=>[q.x|0,q.y|0,q.z|0,q.vx|0,q.vy|0,q.vz|0,q.life])];},sb:d=>{const G=gunShot(d);return [shotBlocked(G),gunLob(G),game.state,d.shot,pa.fireT];},pp:()=>pParts,gs:d=>gunShot(d),aiKinds:()=>({tank:aiTankKinds('L4d'),hover:aiTankKinds('VRK-T1R'),ship:foeShipKind('S4a'),plane:aiPlaneKind('A5a')}),allNodes:()=>{const out=[];for(const [id,n] of NODE){try{const sp=nodeSpec(n),M=MESHES[n.type](sp);let bad=0;for(const v of M.P)if(!isFinite(v)){bad++;break;}out.push([id,n.type,M.P.length/9|0,M.parts.length,bad?'NaN':'',M.forge||'']);}catch(e){out.push([id,n.type,0,0,'ERR '+e.message]);}}return out;},setVehicle:s=>setVehicle(s),nodeSpec:n=>nodeSpec(typeof n==='string'?NODE.get(n):n),get VS(){return VS;},aiu:k=>{const u=KIND_AIU.get(k);if(!u)return null;let n=0;for(let i=4;i<u[2].length;i+=4)if(u[2][i+3]===5)n++;return n;},parts:()=>pParts.map(d=>d.kind),giants:()=>{const o=[];for(const R of giantRegions.values())for(const g of R.giants)o.push([g.x,g.y,g.z,g.height,g.crown]);return o;}};   // test hooks (screenshots, checks)
 
 // ---------- roads: a ribbon laid on the ground along every route near the camera ----------
 // The terrain also carries a faint asphalt tint along the roads, so far away (and wherever the coarse terrain
@@ -8267,7 +8267,8 @@ const STATS={ship:sizedStats,tank:sizedStats,plane:sizedStats},MESHES={ship:spec
 // a hover tank's skirt, an aircraft's engines and wingtips. The colour channel's part 7 makes a surface self-lit (unit shader).
 function tt2Dress(M,spec){
  if(!spec||!spec.tt2||!M||!M.P||!M.C)return M;
- const P=M.P,C=M.C,n=P.length/3,CY=[.44,.46,.48];   // v6.3 realistic: a light grey line, not a glowlet x0=1e9,x1=-1e9,y0=1e9,y1=-1e9,zm=0;
+ const P=M.P,C=M.C,n=P.length/3,CY=[.44,.46,.48];   // v6.3 realistic: a light grey line, not a glow
+ let x0=1e9,x1=-1e9,y0=1e9,y1=-1e9,zm=0;
  for(let i=0;i<n;i++){const x=P[i*3],y=P[i*3+1],z=Math.abs(P[i*3+2]);if(x<x0)x0=x;if(x>x1)x1=x;if(y<y0)y0=y;if(y>y1)y1=y;if(z>zm)zm=z;}
  const glow=i=>{C[i*4]=CY[0];C[i*4+1]=CY[1];C[i*4+2]=CY[2];C[i*4+3]=0;};
  if(spec.type==='ship'){const B=2,nb=Math.ceil((x1-x0)/B)+1,zb=new Float32Array(nb);
@@ -8307,6 +8308,177 @@ function hoverTank(M,spec){
  if(/H/.test(role))for(const sz of [-1,1]){box(M,rx+L*.05,deckY,sz*W*.42,L*.1,H*.35,W*.1,dk);cyl(M,[rx+L*.05,deckY+H*.3,sz*W*.42],[rx+L*.3,deckY+H*.75,sz*W*.42],W*.03,W*.025,8,dk);cyl(M,[rx+L*.28,deckY+H*.72,sz*W*.42],[rx+L*.32,deckY+H*.8,sz*W*.42],W*.04,W*.04,8,CY,0);}   // energy AA cannons
  return M;
 }
+// ---------- v6.5 Shape Forge models: real 3D models built part by part in Shape Forge (the Shelf) and imported here ----------
+// Every part (box, rounded box, sphere, cylinder, cone, torus, capsule, convex hull) is turned into triangles with its rotation (degrees,
+// Euler XYZ), scale, colour and material; every moving group becomes one of the game's own moving parts, so the usual code drives it:
+// turret -> turret (aims at the crosshair), recoil -> barrel (elevates and recoils), flash -> muzzle flash (fires the shell), roll -> wheel,
+// track -> track runs, spin -> radar / propeller, blink -> lamp, fold -> landing gear, flame -> afterburner, wiggle -> control surface.
+// The model is sized to the vehicle's own length and set on its waterline / ground / landing gear; weapons, health and handling stay the tree's.
+// FORGE_USE says which Service Tree vehicle wears which model (every TT1 and TT2 vehicle built on that node - TT2 hover tanks included).
+const FORGE_USE={L4d:'iron-tide-medium-tank',S4a:'iron-tide-destroyer',A5a:'iron-tide-strike-fighter'};
+const forgeBase=new Map();
+const fgHex=h=>{const n=parseInt(String(h).slice(1),16)||0x9aa5a0;return [(n>>16&255)/255,(n>>8&255)/255,(n&255)/255];};
+function fgRotM(r){
+ const [x,y,z]=(r||[0,0,0]).map(d=>d*Math.PI/180),a=Math.cos(x),b=Math.sin(x),c=Math.cos(y),d=Math.sin(y),e=Math.cos(z),f=Math.sin(z);
+ const ae=a*e,af=a*f,be=b*e,bf=b*f;                                   // three.js Euler 'XYZ': R = Rx Ry Rz
+ return [c*e,-c*f,d, af+be*d,ae-bf*d,-b*c, bf-ae*d,be+af*d,a*c];
+}
+const fgMul=(R,v)=>[R[0]*v[0]+R[1]*v[1]+R[2]*v[2],R[3]*v[0]+R[4]*v[1]+R[5]*v[2],R[6]*v[0]+R[7]*v[1]+R[8]*v[2]];
+// a solid of revolution about y: profile [[radius, y, normal radial, normal y], ...]
+function fgLathe(T,prof,seg){
+ for(let i=0;i<prof.length-1;i++){const A=prof[i],B=prof[i+1];
+  for(let k=0;k<seg;k++){const t0=k/seg*6.2832,t1=(k+1)/seg*6.2832,c0=Math.cos(t0),s0=Math.sin(t0),c1=Math.cos(t1),s1=Math.sin(t1);
+   const p=(Q,c,s)=>[Q[0]*c,Q[1],Q[0]*s],n=(Q,c,s)=>unit([Q[2]*c,Q[3],Q[2]*s]);
+   if(A[0]>1e-6){vert(T,p(A,c0,s0),n(A,c0,s0),[0,0,0],0);vert(T,p(B,c0,s0),n(B,c0,s0),[0,0,0],0);vert(T,p(A,c1,s1),n(A,c1,s1),[0,0,0],0);}
+   if(B[0]>1e-6){vert(T,p(A,c1,s1),n(A,c1,s1),[0,0,0],0);vert(T,p(B,c0,s0),n(B,c0,s0),[0,0,0],0);vert(T,p(B,c1,s1),n(B,c1,s1),[0,0,0],0);}}}
+}
+function fgCyl(T,rt,rb,h,seg,flat){
+ const y0=-h/2,y1=h/2,sl=Math.atan2(rb-rt,h),nr=Math.cos(sl),ny=Math.sin(sl);
+ if(flat){for(let k=0;k<seg;k++){const t0=k/seg*6.2832,t1=(k+1)/seg*6.2832,tm=(t0+t1)/2,n=unit([Math.cos(tm)*nr,ny,Math.sin(tm)*nr]);
+   const a=[rb*Math.cos(t0),y0,rb*Math.sin(t0)],b=[rb*Math.cos(t1),y0,rb*Math.sin(t1)],c=[rt*Math.cos(t1),y1,rt*Math.sin(t1)],d=[rt*Math.cos(t0),y1,rt*Math.sin(t0)];
+   vert(T,a,n,[0,0,0],0);vert(T,b,n,[0,0,0],0);vert(T,c,n,[0,0,0],0);vert(T,a,n,[0,0,0],0);vert(T,c,n,[0,0,0],0);vert(T,d,n,[0,0,0],0);}}
+ else fgLathe(T,[[rb,y0,nr,ny],[rt,y1,nr,ny]],seg);
+ for(const [r,y,s] of [[rt,y1,1],[rb,y0,-1]])if(r>1e-6)for(let k=0;k<seg;k++){const t0=k/seg*6.2832,t1=(k+1)/seg*6.2832;
+  vert(T,[0,y,0],[0,s,0],[0,0,0],0);vert(T,[r*Math.cos(t0),y,r*Math.sin(t0)],[0,s,0],[0,0,0],0);vert(T,[r*Math.cos(t1),y,r*Math.sin(t1)],[0,s,0],[0,0,0],0);}
+}
+// the convex hull of a point cloud (incremental): flat faces with outward normals
+function fgHull(T,pts){
+ const P=pts.filter((p,i)=>pts.findIndex(q=>Math.hypot(q[0]-p[0],q[1]-p[1],q[2]-p[2])<1e-6)===i);if(P.length<4)return;
+ const n=P.length,dot=(a,b)=>a[0]*b[0]+a[1]*b[1]+a[2]*b[2];
+ let ext=0;for(const p of P)ext=Math.max(ext,Math.abs(p[0]),Math.abs(p[1]),Math.abs(p[2]));const eps=Math.max(1e-7,ext*1e-6);
+ // a first tetrahedron from four points that are not flat
+ let i0=0,i1=-1,i2=-1,i3=-1,best=0;
+ for(let i=1;i<n;i++){const d=Math.hypot(...sub(P[i],P[i0]));if(d>best){best=d;i1=i;}}if(i1<0)return;
+ best=0;for(let i=0;i<n;i++){const c=Math.hypot(...cross3(sub(P[i1],P[i0]),sub(P[i],P[i0])));if(c>best){best=c;i2=i;}}if(best<eps)return;
+ const n0=cross3(sub(P[i1],P[i0]),sub(P[i2],P[i0]));best=0;for(let i=0;i<n;i++){const v=Math.abs(dot(n0,sub(P[i],P[i0])));if(v>best){best=v;i3=i;}}if(best<eps*Math.hypot(...n0))return;
+ const mk=(a,b,c)=>{const nn=unit(cross3(sub(P[b],P[a]),sub(P[c],P[a])));return {v:[a,b,c],n:nn,d:dot(nn,P[a])};};
+ const ctr=[0,1,2].map(k=>(P[i0][k]+P[i1][k]+P[i2][k]+P[i3][k])/4);
+ let F=[[i0,i1,i2],[i0,i1,i3],[i0,i2,i3],[i1,i2,i3]].map(([a,b,c])=>{let f=mk(a,b,c);if(dot(f.n,ctr)-f.d>0)f=mk(a,c,b);return f;});
+ const used=new Set([i0,i1,i2,i3]);
+ for(let i=0;i<n;i++){if(used.has(i))continue;const p=P[i];const vis=F.filter(f=>dot(f.n,p)-f.d>eps);if(!vis.length)continue;
+  const edges=new Map();for(const f of vis)for(let k=0;k<3;k++){const a=f.v[k],b=f.v[(k+1)%3],key=b+','+a;if(edges.has(key))edges.delete(key);else edges.set(a+','+b,[a,b]);}
+  F=F.filter(f=>!vis.includes(f));for(const [a,b] of edges.values())F.push(mk(a,b,i));}
+ for(const f of F){const [a,b,c]=f.v;vert(T,P[a],f.n,[0,0,0],0);vert(T,P[b],f.n,[0,0,0],0);vert(T,P[c],f.n,[0,0,0],0);}
+}
+// one part, built about its own centre, in its own frame
+function fgPart(p){
+ const T=mesh(),s=p.size||[],big=Math.max(...(p.scale||[1,1,1]).map(Math.abs))*Math.max(...s.map(Math.abs),.01);
+ const seg=r=>r<.06?6:r<.2?8:r<.8?12:r<4?18:24;
+ switch(p.shape){
+  case 'box':case 'rbox':{const w=s[0]||.5,h=s[1]||.5,d=s[2]||.5;box(T,0,-h/2,0,w,h,d,[0,0,0]);break;}
+  case 'sphere':{const r=s[0]||.25,u=seg(r*big/r),v=Math.max(4,u>>1),pr=[];for(let j=0;j<=v;j++){const a=-Math.PI/2+j/v*Math.PI;pr.push([Math.cos(a)*r,Math.sin(a)*r,Math.cos(a),Math.sin(a)]);}fgLathe(T,pr,u);break;}
+  case 'cylinder':{const rt=s[0]??.2,rb=s[1]??.2,h=s[2]||.5;fgCyl(T,rt,rb,h,p.sides||seg(Math.max(rt,rb)),!!p.sides&&p.sides<=8);break;}
+  case 'cone':{const r=s[0]||.25,h=s[1]||.5;fgCyl(T,0,r,h,p.sides||seg(r),!!p.sides&&p.sides<=8);break;}
+  case 'torus':{const R=s[0]||.3,r=s[1]||.08,nu=Math.max(10,seg(R)+4),nv=r<.05?5:8;
+   const pt=(u,v)=>{const cu=Math.cos(u),su=Math.sin(u),cv=Math.cos(v),sv=Math.sin(v);return [[(R+r*cv)*cu,(R+r*cv)*su,r*sv],[cv*cu,cv*su,sv]];};
+   for(let i=0;i<nu;i++)for(let j=0;j<nv;j++){const u0=i/nu*6.2832,u1=(i+1)/nu*6.2832,v0=j/nv*6.2832,v1=(j+1)/nv*6.2832,a=pt(u0,v0),b=pt(u1,v0),c=pt(u1,v1),d=pt(u0,v1);
+    for(const q of [a,b,c,a,c,d])vert(T,q[0],q[1],[0,0,0],0);}break;}
+  case 'capsule':{const r=s[0]||.15,L=s[1]||.4,u=seg(r),pr=[];for(let j=0;j<=4;j++){const a=-Math.PI/2+j/4*Math.PI/2;pr.push([Math.cos(a)*r,-L/2+Math.sin(a)*r,Math.cos(a),Math.sin(a)]);}
+   for(let j=0;j<=4;j++){const a=j/4*Math.PI/2;pr.push([Math.cos(a)*r,L/2+Math.sin(a)*r,Math.cos(a),Math.sin(a)]);}fgLathe(T,pr,u);break;}
+  case 'hull':fgHull(T,p.points||[]);break;
+ }
+ return T;
+}
+function fgColour(p,pal){
+ let c=fgHex(p.color),code=0;
+ if(p.material==='glow')code=7;
+ else if(p.material==='glass')c=[c[0]*.55,c[1]*.6,c[2]*.68];
+ else if(pal&&p.material==='paint'){const l=c[0]*.3+c[1]*.59+c[2]*.11,k=Math.min(1.6,l/.42);c=pal.top.map(v=>Math.min(1,v*k));}   // a chosen paint replaces the painted panels, keeping their light and shade
+ return [c,code];
+}
+// the vehicle's kind of each group, as the game's own moving parts
+function forgeMesh(model,type,o={}){
+ const M=mesh(),G=model.groups||[],byId=new Map(G.map(g=>[g.id,g])),pal=o.pal||null;
+ const depth=g=>{let d=0,q=g;while(q&&q.parent&&d<8){q=byId.get(q.parent);d++;}return d;};
+ const anc=(g,type)=>{let q=g&&g.parent?byId.get(g.parent):null,k=0;while(q&&k++<8){if(q.anim&&q.anim.type===type)return q;q=q.parent?byId.get(q.parent):null;}return null;};
+ const partsOf=new Map();for(const p of model.parts){const k=p.group||'';if(!partsOf.has(k))partsOf.set(k,[]);partsOf.get(k).push(p);}
+ const gid=new Map(),defs=[];                                         // Forge group id -> game part id (index + 1)
+ const restOf=t=>{let best=null,bd=-1;for(const g of G)if(g.parent===t.id&&g.anim&&g.anim.type==='recoil')for(const p of partsOf.get(g.id)||[]){const dx=p.position[0]-t.pivot[0],dz=p.position[2]-t.pivot[2],d=Math.hypot(dx,dz);if(d>bd){bd=d;best=Math.atan2(-dz,dx);}}return best===null?0:Math.round(best/(Math.PI/2))*(Math.PI/2);};
+ const order=[...G].sort((a,b)=>depth(a)-depth(b));
+ const tread=[];                                                     // track groups are split into their straight runs below
+ for(const g of order){
+  const A=g.anim;if(!A)continue;const pv=g.pivot,ax=A.axis||[0,1,0];let d=null;
+  switch(A.type){
+   case 'turret':{const rest=restOf(g);g._rest=rest;d={kind:'turret',pivot:[...pv],axis:[0,1,0],rest,rate:type==='ship'?.45:1.0,arc:type==='ship'?2.6:7};break;}
+   case 'recoil':{const t=anc(g,'turret'),rest=t?t._rest||0:0;g._rest=rest;d={kind:'barrel',parent:t?gid.get(t.id)||0:0,pivot:[...pv],dir:1,cr:Math.cos(rest),sr:Math.sin(rest),rec:Math.abs(A.amount||.4),delay:0};break;}
+   case 'flash':{const t=anc(g,'turret'),b=anc(g,'recoil'),rest=b?b._rest||0:t?t._rest||0:0,ps=partsOf.get(g.id)||[];
+    const lat=[],up=[];for(const p of ps){if(/side|port/i.test(p.name||''))continue;const dx=p.position[0]-pv[0],dz=p.position[2]-pv[2],l=dx*Math.sin(rest)+dz*Math.cos(rest);if(!lat.some(v=>Math.abs(v-l)<.08)){lat.push(l);up.push(p.position[1]-pv[1]);}}
+    let bore=.1;for(const p of b?partsOf.get(b.id)||[]:[])if(p.shape==='cylinder'&&/barrel|tube|sleeve/i.test(p.name||''))bore=Math.max(.02,Math.min(p.size[0],p.size[1]));
+    d={kind:'flash',parent:t?gid.get(t.id)||0:0,pivot:[...pv],dir:1,cr:Math.cos(rest),sr:Math.sin(rest),rec:b?Math.abs(b.anim.amount||.4):0,delay:0,bore,bz:lat.length?lat:[0],by2:up.length?up:[0]};break;}
+   case 'roll':d={kind:'wheel',pivot:[...pv],axis:[0,0,1],r:A.radius||.3};break;
+   case 'track':tread.push(g);continue;
+   case 'spin':d=Math.abs(ax[1])>.7&&!A.byThrottle?{kind:'radar',pivot:[...pv],axis:[0,1,0],rate:A.speed||1.7}:{kind:'prop',pivot:[...pv],axis:unit(ax),spin:Math.sign(A.speed||1)};break;
+   case 'blink':d={kind:'blink',pivot:[...pv],freq:A.rate||1,phase:A.phase||0,duty:A.duty||.4};break;
+   case 'fold':d={kind:'gear',pivot:[...pv],axis:unit(ax),sign:(A.amount||1.57)/1.5708};break;
+   case 'flame':d={kind:'ab',pivot:[...pv],axis:[1,0,0]};break;
+   case 'wiggle':{const nm=g.id.toLowerCase(),a=unit(ax[2]<0?ax.map(v=>-v):ax);
+    if(/aileron/.test(nm))d={kind:'ail',pivot:[...pv],axis:a,sg:pv[2]>0?1:-1};
+    else if(/rudder/.test(nm))d={kind:'rud',pivot:[...pv],axis:unit(ax[1]<0?ax.map(v=>-v):ax)};
+    else if(/elev|tailplane|stab/.test(nm))d={kind:'elev',pivot:[...pv],axis:[0,0,1]};
+    else if(/flap/.test(nm))d={kind:'flap',pivot:[...pv],axis:a};
+    break;}
+  }
+  if(!d)continue;
+  if(!d.parent){const t=anc(g,'turret');if(t&&gid.get(t.id))d.parent=gid.get(t.id);}   // a lamp or a sight on a turret turns with it
+  if(defs.length>=MAX_PARTS)break;
+  defs.push(d);gid.set(g.id,defs.length);
+ }
+ // track runs: the links on the straight top and bottom runs slide along (the game's track run); the links round the wheels stay put
+ const linkRun=new Map();
+ for(const g of tread){const path=g.anim.path||[];if(path.length<3)continue;
+  const ys=path.map(q=>q[1]),mid=(Math.min(...ys)+Math.max(...ys))/2,ps=partsOf.get(g.id)||[];
+  const seg=p=>{let bd=1e9,dir=0;for(let i=0;i<path.length;i++){const a=path[i],b=path[(i+1)%path.length],dx=b[0]-a[0],dy=b[1]-a[1],l2=dx*dx+dy*dy||1,t=Math.max(0,Math.min(1,((p.position[0]-a[0])*dx+(p.position[1]-a[1])*dy)/l2)),d=Math.hypot(p.position[0]-a[0]-dx*t,p.position[1]-a[1]-dy*t);if(d<bd){bd=d;dir=Math.abs(dy)/Math.sqrt(l2);}}return dir;};
+  let per=0;for(let i=0;i<path.length;i++){const a=path[i],b=path[(i+1)%path.length];per+=Math.hypot(b[0]-a[0],b[1]-a[1]);}
+  const nLinks=Math.max(8,ps.filter(p=>/link/i.test(p.name||'')).length||ps.length),pitch=per/nLinks,zc=ps.length?ps[0].position[2]:0;
+  const runs=[[],[]];for(const p of ps){if(seg(p)<.06)runs[p.position[1]>mid?0:1].push(p);}
+  runs.forEach((R,ri)=>{if(!R.length||defs.length>=MAX_PARTS)return;defs.push({kind:'tread',dir:ri?-1:1,r:pitch,pivot:[0,0,zc]});for(const p of R)linkRun.set(p,defs.length);});
+ }
+ // the triangles
+ for(const p of model.parts){
+  const g=p.group?byId.get(p.group):null;let grp=linkRun.get(p)||0;
+  if(!grp&&g){let q=g,k=0;while(q&&!gid.has(q.id)&&k++<8)q=q.parent?byId.get(q.parent):null;grp=q?gid.get(q.id):0;}   // a group the game has no part for rides with the nearest one it has
+  const T=fgPart(p),R=fgRotM(p.rotation),S=p.scale||[1,1,1],pos=p.position||[0,0,0],[col,code]=fgColour(p,pal);
+  M.grp=grp;
+  for(let i=0;i<T.P.length;i+=3){
+   const v=fgMul(R,[T.P[i]*S[0],T.P[i+1]*S[1],T.P[i+2]*S[2]]),n=unit(fgMul(R,[T.N[i]/S[0],T.N[i+1]/S[1],T.N[i+2]/S[2]]));
+   vert(M,[v[0]+pos[0],v[1]+pos[1],v[2]+pos[2]],n,col,code);}
+ }
+ M.grp=0;M.parts=defs;M.forge=model.name;
+ return M;
+}
+// move and size a built Forge mesh: x,z and the pivots scale by k, y by k then shifts by dy
+function fgPlace(M,k,dy){
+ for(let i=0;i<M.P.length;i+=3){M.P[i]*=k;M.P[i+1]=M.P[i+1]*k+dy;M.P[i+2]*=k;}
+ for(const d of M.parts){if(d.pivot)d.pivot=[d.pivot[0]*k,d.pivot[1]*k+dy,d.pivot[2]*k];if(typeof d.r==='number')d.r*=k;if(typeof d.rec==='number')d.rec*=k;if(typeof d.bore==='number')d.bore*=k;if(Array.isArray(d.bz))d.bz=d.bz.map(v=>v*k);if(Array.isArray(d.by2))d.by2=d.by2.map(v=>v*k);}
+ return M;
+}
+const fgCopy=M=>({...M,P:M.P.slice(),N:M.N.slice(),C:M.C.slice(),G:M.G.slice(),parts:M.parts.map(d=>({...d,pivot:d.pivot?d.pivot.slice():d.pivot,axis:d.axis?d.axis.slice():d.axis,bz:d.bz?d.bz.slice():d.bz,by2:d.by2?d.by2.slice():d.by2})),exhaust:M.exhaust?M.exhaust.map(e=>e.slice()):undefined,aa:M.aa?M.aa.map(e=>e.slice()):undefined});
+// the Forge model a vehicle wears, at the vehicle's own size, in its builder's units (MESHES then scales it like any other model)
+function forgeVehicle(spec){
+ const key=spec&&spec.node&&FORGE_USE[spec.node],model=key&&typeof FORGE_MODELS!=='undefined'&&FORGE_MODELS[key];if(!model)return null;
+ const t=spec.type,paint=spec.p&&spec.p.paint||0,ck=key+'|'+t+'|'+paint+'|'+(spec.tt2?1:0);
+ let B=forgeBase.get(ck);
+ if(!B){
+  // a chosen paint replaces the painted panels; tanks wear their own service paint over the model's panels
+  const pal=paint&&PAINTS[paint]&&!spec.tt2?PAINTS[paint]:t==='tank'?((typeof tkPal==='function'&&tkPal(spec))||SVC_PAL.tank):null,M=forgeMesh(model,t,{pal}),P=M.P,Gv=M.G;
+  const moving=new Set();M.parts.forEach((d,i)=>{if(d.kind==='turret'||d.kind==='barrel'||d.kind==='flash'||(d.parent&&M.parts[d.parent-1]&&M.parts[d.parent-1].kind==='turret'))moving.add(i+1);});
+  let x0=1e9,x1=-1e9,y0=1e9,y1=-1e9;for(let v=0;v<P.length/3;v++){const y=P[v*3+1];if(y<y0)y0=y;if(y>y1)y1=y;if(moving.has(Gv[v]))continue;const x=P[v*3];if(x<x0)x0=x;if(x>x1)x1=x;}
+  const st=BASE_STATS[t](spec),natL=t==='tank'?tankStats(spec).length:st.length,k=natL/Math.max(.1,x1-x0);
+  let dy;
+  if(t==='ship'){let wl=-1e9;for(const p of model.parts)if(/underwater/i.test(p.name||''))for(const q of p.points||[[0,(p.size&&p.size[1]||0)/2,0]])wl=Math.max(wl,q[1]+p.position[1]);if(wl<-1e8)wl=y0+(y1-y0)*.12;dy=-wl*k;}
+  else if(t==='plane')dy=-(st.gearH||1.5)-y0*k;
+  else dy=-y0*k;
+  fgPlace(M,k,dy);M.xc=(x0+x1)/2*k;
+  if(t==='ship'){                                                     // funnel smoke and the ship's light AA
+   M.exhaust=[];let ft=0;for(const p of model.parts){if(/funnel$|^funnel\b|smokestack|stack$/i.test(p.name||'')&&!/stain|grating|rail/i.test(p.name)){const top=(p.position[1]+(p.size&&p.size[1]||0)/2)*k+dy;M.exhaust.push([p.position[0]*k,top,p.position[2]*k]);ft=Math.max(ft,top);}}
+   M.funTop=ft;M.aa=[];for(const p of model.parts)if(/CIWS|AA |flak|oerlikon|bofors/i.test(p.name||'')&&/base|mount|dome/i.test(p.name))M.aa.push([p.position[0]*k,p.position[1]*k+dy+1,p.position[2]*k,2]);if(!M.aa.length)delete M.aa;}
+  B=M;forgeBase.set(ck,B);
+ }
+ return fgCopy(B);
+}
+// v6.5 a vehicle with a Shape Forge model wears it (sized like any other model: the mesh, its moving parts, funnel smoke and AA mounts)
+for(const t of ['ship','tank','plane']){const f=MESHES[t];MESHES[t]=spec=>{const F=forgeVehicle(spec);if(!F)return f(spec);const k=(t==='tank'?TANK_K:1)*sizeKOf(spec);
+ if(F.exhaust)F.exhaust=F.exhaust.map(e=>e.map(v=>v*k));if(F.aa)F.aa=F.aa.map(a=>[a[0]*k,a[1]*k,a[2]*k,a[3]]);return scaleMesh(F,k);};}
 for(const t of ['ship','tank','plane']){const f=MESHES[t];MESHES[t]=spec=>tt2Dress(t==='tank'?hoverTank(f(spec),spec):f(spec),spec);}
 const vehicleStats=spec=>STATS[spec.type](spec);
 const vehicleMesh=spec=>MESHES[spec.type](spec);

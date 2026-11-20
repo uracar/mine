@@ -58,7 +58,7 @@ remembers why it started. They just keep fighting.
 | | Getting hit: a small flash, not a whole fireball | ✅ v5.5: blasts on your own vehicle are a small flash + puff; PvP hits toned down |
 | | Dust, fire, explosions, smoke at the same quality as the water — real smoke and fire | ⬜ |
 | | Improved water | ⬜ |
-| | Detailed models | 🔨 |
+| | Detailed models | 🔨 v6.5 **real 3D models from Shape Forge** (the Shelf): js/models.js holds them, forgeMesh() in game.js imports them part by part with working moving parts. In the game now: Vanguard L4d (and TT2 VRK-T1R hover tank) = Medium Tank, Trident S4a = Destroyer, Adder A5a (and TT2 ZAR) = Strike Fighter. Add more by putting the model in js/models.js and its node in FORGE_USE. |
 | | Less lag / smooth | 🔨 v5.0 shader + governor fixes; needs Chromebook test |
 
 ## Tech tree 2 (TT2) — ✅ v5.7 first version in the game (hangar: TECH TREE 1 / TECH TREE 2)
@@ -111,3 +111,13 @@ along both sides, a central superstructure block with two stacks, a tall stepped
 - Ammo types: bombs, rockets, machine guns. Fighter upgrades (guns, speed). Bombers for large strikes.
 - Tree: Light plane → Light fighters / Light bomber → P-51-like, F-35-like (stealth fighter-bomber mix), heavy bomber (?) → stealth bomber (flies high, stealthy), seaplane (?)
 - T7 plane: "the plane idea that was supposed to be a **(?) fortress** — we made it."
+
+## Shape Forge pipeline (v6.5)
+- Models are built in the Shape Forge artifact (https://claude.ai/artifact/2Eu99Qo1kytxkeFsNPijTY) and saved to its Shelf (db collection `models`).
+  Another Claude session builds them; this repo only imports them (copy the model JSON into js/models.js, map a tree node in FORGE_USE).
+- Group animations map to game parts: turret→turret, recoil→barrel, flash→muzzle flash (fires the shell), roll→wheel, track→track runs,
+  spin→radar/prop, blink→lamp, fold→landing gear, flame→afterburner, wiggle→aileron/rudder/elevator/flap (by group name).
+- The model is sized to the vehicle's length (guns and turret excluded), set on the waterline (top of the parts named "underwater hull"),
+  on the ground (tanks) or on its landing gear (planes). Tanks wear their own service paint; a chosen paint recolours the painted panels.
+- Wanted next (asked of the modelling session): heavy tank, battleship, transport plane, then one per Service Tree vehicle.
+- Fixed in v6.5: a comment had swallowed code in tt2Dress since v6.3, so every TT2 vehicle failed to build.

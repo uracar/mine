@@ -4,7 +4,7 @@ It talks to the live game server on iron-tide-game.netlify.app (accounts, the sh
 import pathlib,re
 root=pathlib.Path(__file__).resolve().parent.parent
 r=lambda p:(root/p).read_text()
-for f in ['js/terrain.js','js/shaders.js','js/game.js','css/style.css']:
+for f in ['js/terrain.js','js/shaders.js','js/models.js','js/game.js','css/style.css']:
     assert '</script' not in r(f).lower(), f
 html=f"""<!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
@@ -21,6 +21,9 @@ html=f"""<!doctype html>
 <script id="terrainsrc" type="text/plain">{r('js/terrain.js')}</script>
 <script>
 {r('js/shaders.js')}
+</script>
+<script>
+{r('js/models.js')}
 </script>
 <script>
 {r('js/game.js')}
