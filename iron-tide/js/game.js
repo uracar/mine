@@ -2169,7 +2169,7 @@ function renderOps(){
 window.__contracts={get contract(){return contract;},conOffers,conAccept,conClear,contractStep,contractDock,conComplete,get done(){return conDone;}};
 
 // ---------- the game around the world: home screen, HUD, pause and settings, fuel and hull, harbours and the port screen, saving ----------
-const GAME_TITLE='IRON TIDE',GAME_VERSION='v6.7';
+const GAME_TITLE='IRON TIDE',GAME_VERSION='v6.8';
 try{document.getElementById('load').textContent='LOADING WORLD… '+GAME_VERSION;}catch(e){}
 const SAVE_KEY='irontide.save.v1';
 const BURN_IDLE=.00004,BURN_AHEAD=.00048;                 // fuel (0..1) per second; flank speed burns 2.5 times the ahead rate
@@ -6298,6 +6298,7 @@ function turretClearance(M){
   const bid=parts.indexOf(bar)+1,px=d.pivot[0],pz=d.pivot[2],by=bar.pivot[1],cr=Math.cos(d.rest),sr=Math.sin(d.rest);
   let Lb=0,vm=0,ylo=1e9,yhi=-1e9;for(let v=0;v<P.length/3;v++){if(G[v]!==bid)continue;const dx=P[v*3]-px,dz=P[v*3+2]-pz,u=dx*cr-dz*sr,w=dx*sr+dz*cr;Lb=Math.max(Lb,u);vm=Math.max(vm,Math.abs(w));ylo=Math.min(ylo,P[v*3+1]);yhi=Math.max(yhi,P[v*3+1]);}
   if(!(Lb>0))continue;
+  if(d.fg){ylo=1e9;for(let v=0;v<P.length/3;v++){if(G[v]!==bid)continue;const dx=P[v*3]-px,dz=P[v*3+2]-pz,u=dx*cr-dz*sr;if(u>Lb*.4)ylo=Math.min(ylo,P[v*3+1]);}if(ylo>1e8)ylo=by-.1;}   // v6.8 an imported gun's barrel group can hold its shield and breech: size the barrel from its front part only
   let rIn=0;for(let v=0;v<P.length/3;v++){if(G[v]!==id)continue;rIn=Math.max(rIn,Math.hypot(P[v*3]-px,P[v*3+2]-pz));}rIn*=.8;
  const rad=Math.max(.05,(by-ylo)*.6),clr=new Float32Array(72),step=cs*.6,max=VS&&VS.type==='ship'?Math.max(lim[1],GUN_TRAV):lim[1];   // v4.9 ship turrets may lift their guns to GUN_TRAV to swing over obstacles
   for(let k=0;k<72;k++){const h=d.rest+(k*5-180)*Math.PI/180,dx=Math.cos(h),dz=-Math.sin(h),lx=Math.sin(h),lz=Math.cos(h);let need=-1;
@@ -8320,7 +8321,8 @@ function hoverTank(M,spec){
 // FORGE_USE says which Service Tree vehicle wears which model (every TT1 and TT2 vehicle built on that node - TT2 hover tanks included).
 const FORGE_USE={L4d:'iron-tide-medium-tank',S4a:'iron-tide-destroyer',A5a:'iron-tide-strike-fighter',
  L1:'iron-tide-jackal',L3c:'iron-tide-grimjaw',L4c:'iron-tide-monolith',S1:'iron-tide-lynx',S1b:'iron-tide-sentinel',S1c:'iron-tide-bulwark',
- S4c:'iron-tide-colossus',S4d:'iron-tide-leviathan',A1:'iron-tide-sparrow',A4c:'iron-tide-bastion'};
+ S4c:'iron-tide-colossus',S4d:'iron-tide-leviathan',A1:'iron-tide-sparrow',A4c:'iron-tide-bastion',
+ S2a:'iron-tide-viper',S2b:'iron-tide-hornet-aa-destroyer',S2c:'iron-tide-warden',S2d:'iron-tide-anvil',L2a:'iron-tide-hornet-aa-car',L2b:'iron-tide-ironhorse',A2a:'iron-tide-kestrel',A2b:'iron-tide-rook'};
 const forgeBase=new Map();
 const fgHex=h=>{const n=parseInt(String(h).slice(1),16)||0x9aa5a0;return [(n>>16&255)/255,(n>>8&255)/255,(n&255)/255];};
 function fgRotM(r){
@@ -8406,13 +8408,13 @@ function forgeMesh(model,type,o={}){
  for(const g of order){
   const A=g.anim;if(!A)continue;const pv=g.pivot,ax=A.axis||[0,1,0];let d=null;
   switch(A.type){
-   case 'turret':{const rest=restOf(g);g._rest=rest;d={kind:'turret',pivot:[...pv],axis:[0,1,0],rest,rate:type==='ship'?.45:1.0,arc:type==='ship'?2.6:7};break;}
+   case 'turret':{const rest=restOf(g);g._rest=rest;d={kind:'turret',pivot:[...pv],axis:[0,1,0],rest,rate:type==='ship'?.45:1.0,arc:type==='ship'?2.6:7,fg:1};break;}
    case 'recoil':{const t=anc(g,'turret'),rest=t?t._rest||0:0;g._rest=rest;d={kind:'barrel',parent:t?gid.get(t.id)||0:0,pivot:[...pv],dir:1,cr:Math.cos(rest),sr:Math.sin(rest),rec:Math.abs(A.amount||.4),delay:0};break;}
    case 'flash':{const t=anc(g,'turret'),b=anc(g,'recoil'),rest=b?b._rest||0:t?t._rest||0:0,ps=partsOf.get(g.id)||[];
     const lat=[],up=[];for(const p of ps){if(/side|port/i.test(p.name||''))continue;const dx=p.position[0]-pv[0],dz=p.position[2]-pv[2],l=dx*Math.sin(rest)+dz*Math.cos(rest);if(!lat.some(v=>Math.abs(v-l)<.08)){lat.push(l);up.push(p.position[1]-pv[1]);}}
     let bore=.1;for(const p of b?partsOf.get(b.id)||[]:[])if(p.shape==='cylinder'&&/barrel|tube|sleeve/i.test(p.name||''))bore=Math.max(.02,Math.min(p.size[0],p.size[1]));
     d={kind:'flash',parent:t?gid.get(t.id)||0:0,pivot:[...pv],dir:1,cr:Math.cos(rest),sr:Math.sin(rest),rec:b?Math.abs(b.anim.amount||.4):0,delay:0,bore,bz:lat.length?lat:[0],by2:up.length?up:[0]};
-    if(/coax|secondary|machine|mg\b/i.test((b?b.id:'')+' '+g.id))d.med=true;break;}   // a coaxial gun hits like a secondary, not a second main gun
+    if(/coax|secondary|machine|mg\b/i.test((b?b.id:'')+' '+g.id))d.med=true;if(/missile|rocket|launcher/i.test((t?t.id:'')+' '+(b?b.id:'')+' '+g.id))d.noShot=true;break;}   // a launcher's flash is shown, but its missiles come from the missile slot   // a coaxial gun hits like a secondary, not a second main gun
    case 'roll':d={kind:'wheel',pivot:[...pv],axis:[0,0,1],r:A.radius||.3};break;
    case 'track':tread.push(g);continue;
    case 'spin':d=Math.abs(ax[1])>.7&&!A.byThrottle?{kind:'radar',pivot:[...pv],axis:[0,1,0],rate:A.speed||1.7}:{kind:'prop',pivot:[...pv],axis:unit(ax),spin:Math.sign(A.speed||1)};break;
@@ -8447,10 +8449,12 @@ function forgeMesh(model,type,o={}){
   if(!grp&&g){let q=g,k=0;while(q&&!gid.has(q.id)&&k++<8)q=q.parent?byId.get(q.parent):null;grp=q?gid.get(q.id):0;}   // a group the game has no part for rides with the nearest one it has
   const T=fgPart(p),R=fgRotM(p.rotation),S=p.scale||[1,1,1],pos=p.position||[0,0,0];let [col,code]=fgColour(p,pal,ref);
   if(o.plant&&code!==7)code=/crown|canopy|frond|leaf|foliage|needle/i.test(p.name||'')?(p.shape==='hull'?2.25:2.31):0;   // trees: bark 0, leaf masses 2.25, leaf panels 2.31, glow 7
-  M.grp=grp;
+  M.grp=grp;const t0=M.P.length/9;let ax0=1e9,ax1=-1e9,az0=1e9,az1=-1e9;
   for(let i=0;i<T.P.length;i+=3){
    const v=fgMul(R,[T.P[i]*S[0],T.P[i+1]*S[1],T.P[i+2]*S[2]]),n=unit(fgMul(R,[T.N[i]/S[0],T.N[i+1]/S[1],T.N[i+2]/S[2]]));
+   ax0=Math.min(ax0,v[0]);ax1=Math.max(ax1,v[0]);az0=Math.min(az0,v[2]);az1=Math.max(az1,v[2]);
    vert(M,[v[0]+pos[0],v[1]+pos[1],v[2]+pos[2]],n,col,code);}
+  if(type==='ship'&&!grp&&Math.min(ax1-ax0,az1-az0)<.35)(M.noClr||(M.noClr=[])).push([t0,M.P.length/9]);   // v6.8 thin rails, posts, staffs and masts never stop a turret turning
  }
  M.grp=0;M.parts=defs;M.forge=model.name;
  return M;
@@ -8897,7 +8901,7 @@ function animateParts(t,dt){
     partA[o+3]=d.pair?d.pair.el:0;
     const ft=pa.fireT-(d.delay||0),k=recoilCurve(ft);
     {const rk=VS.type==='tank'?1.5:1;partC[o]=-(d.cr!==undefined?d.cr:d.dir)*d.rec*k*rk;partC[o+2]=(d.sr||0)*d.rec*k*rk;}
-    if(ft>=0&&ft<.3&&!d.shot){d.shot=true;if(game.state==='playing')fireFromPart(d);}      // the shell leaves the muzzle
+    if(ft>=0&&ft<.3&&!d.shot){d.shot=true;if(game.state==='playing'&&!d.noShot)fireFromPart(d);}      // the shell leaves the muzzle
     partB[o+3]=ft>=0&&ft<.09?.75+.5*Math.random():0;break;}
    case 'wheel':partA[o+3]=(-pa.wheel/d.r)%6.2832;if(d.road)partC[o+1]=tankWheelUp(d,dt);break;
    case 'tread':partC[o]=d.dir*(((pa.wheel%d.r)+d.r)%d.r);break;
@@ -10750,7 +10754,9 @@ UNIT.BUSH=pdKind(pdFloorM,45,8,220);
 function forgePlantM(key){const m=typeof FORGE_MODELS!=='undefined'&&FORGE_MODELS[key];if(!m)return mesh();const M=forgeMesh(m,'tree',{plant:true});M.parts=[];return M;}
 const FTREE={};
 for(const [k,key,rad,dr] of [['RAIN','iron-tide-tree-rainforest',40,1600],['LEAF','iron-tide-tree-broadleaf',14,1300],['PALM','iron-tide-tree-palm',10,1300],['CONE','iron-tide-tree-conifer',8,1400],['SHRUB','iron-tide-tree-shrub',3,260],['GLOW','iron-tide-tree-glow-willow',14,1300]]){
- const M=forgePlantM(key),kk=unitList.length;unitList.push([]);UNIT_DRAW_R.push(dr);addUnitKind(M);PLANT_K.add(kk);unitFlags[kk]={rad,roll:0,det:0,lod:-1,lodD:0};FTREE[k]=kk;}
+ FTREE[k]=[];for(const sfx of ['','-2','-3']){if(sfx&&!(typeof FORGE_MODELS!=='undefined'&&FORGE_MODELS[key+sfx]))continue;   // v6.8 three shapes of every species
+  const M=forgePlantM(key+sfx),kk=unitList.length;unitList.push([]);UNIT_DRAW_R.push(dr);addUnitKind(M);PLANT_K.add(kk);unitFlags[kk]={rad,roll:0,det:0,lod:-1,lodD:0};FTREE[k].push(kk);}}
+const ftk=(k,h)=>{const L=FTREE[k];return L[Math.min(L.length-1,Math.floor(h*L.length))];};   // one of a species' shapes, by hash
 const wvn=(x,z,s)=>{const i=Math.floor(x),j=Math.floor(z),fx=x-i,fz=z-j,u=fx*fx*(3-2*fx),w=fz*fz*(3-2*fz),h=(a,b)=>hsh(a,b,s);
  return h(i,j)*(1-u)*(1-w)+h(i+1,j)*u*(1-w)+h(i,j+1)*(1-u)*w+h(i+1,j+1)*u*w;};
 const forestMaskF=new Function(FOREST_SRC+';return forestMask;')(),forestAt=(x,z)=>forestMaskF(T,x,z);
@@ -10761,16 +10767,17 @@ function woodBlock(bi,bj){
   const gi=k%G,gj=(k/G)|0;if(hsh(bi*13+k,bj,40)>f0*1.05+(hsh(bi,bj,41)<.12&&k<2?.5:0))continue;
   const x=bi*WOOD_B+(gi+.1+.8*hsh(bi*7+k,bj,43))*cell,z=bj*WOOD_B+(gj+.1+.8*hsh(bi,bj*7+k,44))*cell;
   const h=T.height(x,z);if(h<2||h>650)continue;
-  if(forestAt(x,z)<.08){if(h>=2&&h<9&&hsh(bi*5+k,bj*3,66)<.35&&T.pave(x,z)<.02&&T.roadDist(x,z)>15&&T.portW(x,z)<.005&&!inTown(x,z,25))L.push(x,h-.3,z,hsh(k,bi,67)*6.283,1.1+.8*hsh(k,bj,68),FTREE.PALM);continue;}   // the wood's edge (v6.6: palms line the coast)
+  if(forestAt(x,z)<.08){if(h>=2&&h<9&&hsh(bi*5+k,bj*3,66)<.35&&T.pave(x,z)<.02&&T.roadDist(x,z)>15&&T.portW(x,z)<.005&&!inTown(x,z,25))L.push(x,h-.3,z,hsh(k,bi,67)*6.283,1.1+.8*hsh(k,bj,68),ftk('PALM',hsh(bi,k,71)));continue;}   // the wood's edge (v6.6: palms line the coast)
   if(h<4||T.pave(x,z)>.02||T.roadDist(x,z)<20||T.portW(x,z)>.005||inTown(x,z,25))continue;
   const r=hsh(bi-k,bj+k,46),Ht=40+40*Math.pow(hsh(bi+k,bj-k,45),1.6);
   const hill=h>240?Math.min(1,(h-240)/160):0;                                      // v6.6 conifers take over up the hills
-  let kind=r<.3?UNIT.PINE:r<.46?UNIT.BROAD:r<.56?FTREE.RAIN:r<.68?UNIT.SPRUCE:r<.82?FTREE.LEAF:r<.93?UNIT.BIRCH:FTREE.GLOW;
-  if(hsh(bi+k,bj+k,58)<hill)kind=FTREE.CONE;else if(h<12&&hsh(k,bi-bj,59)<.6)kind=FTREE.PALM;
-  const s=kind===UNIT.BIRCH?.85+.75*hsh(k,bj,54):kind===FTREE.RAIN?Ht/58:kind===FTREE.LEAF?1.4+1.2*hsh(k,bj,60):kind===FTREE.CONE?1.1+.9*hsh(k,bj,61):kind===FTREE.PALM?1.2+.8*hsh(k,bj,62):kind===FTREE.GLOW?1.1+.6*hsh(k,bj,63):Ht/(kind===UNIT.BROAD?46:50);
+  const vh=hsh(bi*3+k,bj*5-k,69);let sp=r<.3?'':r<.46?'':r<.56?'RAIN':r<.68?'':r<.82?'LEAF':r<.93?'':'GLOW';
+  let kind=r<.3?UNIT.PINE:r<.46?UNIT.BROAD:r<.68?UNIT.SPRUCE:UNIT.BIRCH;
+  if(hsh(bi+k,bj+k,58)<hill)sp='CONE';else if(h<12&&hsh(k,bi-bj,59)<.6)sp='PALM';if(sp)kind=ftk(sp,vh);
+  const s=sp==='RAIN'?Ht/58:sp==='LEAF'?1.4+1.2*hsh(k,bj,60):sp==='CONE'?1.1+.9*hsh(k,bj,61):sp==='PALM'?1.2+.8*hsh(k,bj,62):sp==='GLOW'?1.1+.6*hsh(k,bj,63):kind===UNIT.BIRCH?.85+.75*hsh(k,bj,54):Ht/(kind===UNIT.BROAD?46:50);
   L.push(x,h-.3,z,hsh(k,bi+bj,47)*6.283,s,kind);
   if(f0>.3&&k%4===0){const a=hsh(k,bj,55)*6.283,fx=x+Math.cos(a)*13,fz=z+Math.sin(a)*13;if(T.roadDist(fx,fz)>8)L.push(fx,T.height(fx,fz)-.3,fz,a,.7+.6*hsh(k,bi,56),UNIT.BIRCH);}   // understory fan trees
-  if(f0>.2&&k%2===0)for(let m=0;m<1;m++){const a=hsh(k*3+m,bj,52)*6.283,d=4+10*hsh(k,bi*3+m,57),bx=x+Math.cos(a)*d,bz=z+Math.sin(a)*d;if(T.roadDist(bx,bz)>5){const sh=hsh(k+m,bj,64)<.4;L.push(bx,T.height(bx,bz)-.2,bz,a,sh?1+1.2*hsh(k,m,65):.7+.9*hsh(k+m,bi,53),sh?FTREE.SHRUB:UNIT.BUSH);}}   // ferns and floor plants
+  if(f0>.2&&k%2===0)for(let m=0;m<1;m++){const a=hsh(k*3+m,bj,52)*6.283,d=4+10*hsh(k,bi*3+m,57),bx=x+Math.cos(a)*d,bz=z+Math.sin(a)*d;if(T.roadDist(bx,bz)>5){const sh=hsh(k+m,bj,64)<.4;L.push(bx,T.height(bx,bz)-.2,bz,a,sh?1+1.2*hsh(k,m,65):.7+.9*hsh(k+m,bi,53),sh?ftk('SHRUB',hsh(m,k,70)):UNIT.BUSH);}}   // ferns and floor plants
  }
  if(woodCache.size>1200)woodCache.clear();
  woodCache.set(key,L);return L;
@@ -11837,7 +11844,7 @@ function shipHull(M,S,o){
 
 UNIT.FREIGHT=unitList.length;UNIT.HELI=UNIT.FREIGHT+1;UNIT.ROTOR=UNIT.FREIGHT+2;UNIT.TROTOR=UNIT.FREIGHT+3;
 unitList.push([],[],[],[]);UNIT_DRAW_R.push(9000,7000,2600,900);
-const extraDrawKinds=[UNIT.FREIGHT,UNIT.HELI,UNIT.ROTOR,UNIT.TROTOR,UNIT.PINE,UNIT.BROAD,UNIT.SPRUCE,UNIT.BIRCH,UNIT.BUSH,...Object.values(FTREE),UNIT.BOATV,UNIT.BOATV+1,UNIT.BOATV+2];
+const extraDrawKinds=[UNIT.FREIGHT,UNIT.HELI,UNIT.ROTOR,UNIT.TROTOR,UNIT.PINE,UNIT.BROAD,UNIT.SPRUCE,UNIT.BIRCH,UNIT.BUSH,...Object.values(FTREE).flat(),UNIT.BOATV,UNIT.BOATV+1,UNIT.BOATV+2];
 (function(){
  // ---------------- a coastal freighter, about 112 m: three holds with container stacks, two deck cranes, accommodation and funnel aft ----------------
  const M=mesh(),hullC=[.13,.15,.18],red=[.42,.10,.08],deckC=[.27,.31,.27],white=[.84,.85,.82],wd=[.66,.67,.65],dk=[.10,.11,.12],glass=[.08,.12,.17],steel=[.44,.46,.46],orange=[.95,.45,.08],yel=[.86,.68,.12];

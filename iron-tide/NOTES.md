@@ -122,5 +122,8 @@ along both sides, a central superstructure block with two stacks, a tall stepped
 - v6.7 batch 2 in the game: Jackal L1, Grimjaw L3c, Monolith L4c (with coaxial gun; TT2 HXA-M3D hover), Lynx S1, Sentinel S1b, Bulwark S1c,
   Colossus S4c, Leviathan S4d, Sparrow A1, Bastion A4c (TT2 BRT-T1A). Ships keep their class's AA battery. Paint maps relative to the model's main paint.
 - v6.7 Shape Forge trees in the woods: palms on the coast, conifers up the hills, rainforest giant / broadleaf / glow willow / shrub mixed in.
-- Next from the modelling session: the rest of the Service Tree list, in tree order.
+- v6.8 batch 3: Viper S2a, Hornet AA destroyer S2b, Warden S2c (missile launcher moves, its missiles stay in the missile slot), Anvil S2d,
+  Hornet AA car L2a, Ironhorse L2b, Kestrel A2a, Rook A2b; three shapes of every tree species. Known model issues sent back: Viper's bow
+  torpedo tubes stand taller than its gun (gun must lift to traverse), Warden's main gun faces into the funnel (rests turned clear).
+- Next from the modelling session: tier 3 (S3a-S3e, L3a, L3b, A3a-A3c), then on down the list.
 - Fixed in v6.5: a comment had swallowed code in tt2Dress since v6.3, so every TT2 vehicle failed to build.
