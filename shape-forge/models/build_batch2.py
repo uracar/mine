@@ -620,7 +620,7 @@ def sentinel():
 
 def bulwark():
     return small_ship("Iron Tide Bulwark", HOME_GREY, 107, 16.7, turrets=[
-        ("A turret", 0.28, 2, 0.26, 9.5, False, 0.0), ("B turret", -0.05, 2, 0.26, 9.5, False, 2.6), ("X turret", -0.32, 2, 0.26, 9.5, True, 0.0)],
+        ("A turret", 0.28, 2, 0.26, 9.5, False, 0.0), ("B turret", -0.17, 2, 0.26, 9.5, True, 2.6), ("X turret", -0.34, 2, 0.26, 9.5, True, 0.0)],
         funnels=[(0.1, 6.0, 9.0, 1.0)], hull_no="3", mast_h=26)
 
 

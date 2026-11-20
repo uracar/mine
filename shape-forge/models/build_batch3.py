@@ -19,13 +19,13 @@ def viper():
     hb, fb, wat = ship_hull(m, P, L, B, draft=1.6 * s, free=2.4 * s, bow_sheer=1.0 * s, flare=0.25, transom=0.85, bow_rake=0.35)
     dy = lambda x: fb(x) + 0.03
     for sd, side in ((-1, "port"), (1, "starboard")):
-        m.hull(f"bow torpedo tube {side}", [(x, y, z) for x in (0.42 * L, 0.18 * L) for y in (dy(0.3 * L) - 0.2, dy(0.3 * L) + 0.75) for z in (sd * 0.5, sd * 1.55)], P["top"])
-        m.cyl_x(f"torpedo tube mouth {side}", 0.3, 0.3, 0.1, [0.42 * L + 0.05, dy(0.3 * L) + 0.25, sd * 1.0], "#151718", "matte")
+        m.hull(f"bow torpedo tube {side}", [(x, y, z) for x in (0.42 * L, 0.18 * L) for y in (dy(0.3 * L) - 0.3, dy(0.3 * L) + 0.3) for z in (sd * 0.5, sd * 1.55)], P["top"])   # kept below the gun's trunnion
+        m.cyl_x(f"torpedo tube mouth {side}", 0.22, 0.22, 0.1, [0.42 * L + 0.05, dy(0.3 * L) + 0.02, sd * 1.0], "#151718", "matte")
     m.hull("wheelhouse", [(x, y, z) for x in (0.12 * L, -0.06 * L) for y in (dy(0), dy(0) + 1.9) for z in (-1.5, 1.5)], P["top"])
     m.box("wheelhouse windows", [0.08, 0.45, 2.4], [0.12 * L + 0.04, dy(0) + 1.45, 0], "#1b2a33", "glass")
     m.cyl_y("mast", 0.06, 0.08, 4.0, [0.0, dy(0) + 3.9, 0], P["light"], "metal")
     lamp(m, "mast lamp", [0.0, dy(0) + 6.0, 0], r=0.12)
-    ship_turret(m, P, "A gun", 0.24 * L, dy(0.24 * L), n=1, calibre=0.04, house=(1.4, 1.2, 0.9), arc=1.0)
+    ship_turret(m, P, "A gun", 0.24 * L, dy(0.24 * L), n=1, calibre=0.04, house=(1.4, 1.2, 0.9), arc=1.0, raise_h=0.3)
     for k, x in enumerate((-0.2 * L, -0.38 * L)):
         m.cyl_y(f"AA mount {k}", 0.5, 0.6, 0.5, [x, dy(x) + 0.25, 0], P["dark"], "paint")
         m.cyl_x(f"AA barrels {k}", 0.05, 0.05, 1.6, [x + 0.9, dy(x) + 0.75, 0], DARK_STEEL, "metal")
@@ -73,7 +73,7 @@ def warden():
     m.hull("funnel", [(xx, yy, zz) for xx in (fx + 3 * s, fx - 3 * s) for yy in (d0 + 5.5 * s, d0 + 11 * s) for zz in (-2.4 * s, 2.4 * s)], P["top"])
     m.box("funnel cap", [6.4 * s, 0.6 * s, 5 * s], [fx, d0 + 11 * s, 0], "#25282a", "matte")
     # the gun on top of the deckhouse amidships (as on the real ship), a close-in weapon on the hangar
-    ship_turret(m, P, "main gun", -0.12 * L, d0 + 5.5 * s, n=1, calibre=0.08, house=(4.0, 3.2, 2.0), aft=False, arc=1.2, barbette=False)
+    ship_turret(m, P, "main gun", -0.12 * L, d0 + 5.5 * s, n=1, calibre=0.08, house=(4.0, 3.2, 2.0), aft=True, arc=1.2, barbette=False)   # faces aft: the funnel is ahead of it
     m.hull("hangar", [(xx, yy, zz) for xx in (-0.28 * L, -0.38 * L) for yy in (d0 - 0.3, d0 + 6.5 * s) for zz in (-B * 0.45, B * 0.45)], P["top"])
     m.box("hangar door", [0.1, 5 * s, B * 0.7], [-0.38 * L - 0.05, d0 + 2.9 * s, 0], P["dark"], "paint")
     m.cyl_y("CIWS base", 1.0, 1.2, 1.0, [-0.33 * L, d0 + 7 * s, 0], P["top"], "paint")
