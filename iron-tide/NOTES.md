@@ -119,5 +119,8 @@ along both sides, a central superstructure block with two stacks, a tall stepped
   spin→radar/prop, blink→lamp, fold→landing gear, flame→afterburner, wiggle→aileron/rudder/elevator/flap (by group name).
 - The model is sized to the vehicle's length (guns and turret excluded), set on the waterline (top of the parts named "underwater hull"),
   on the ground (tanks) or on its landing gear (planes). Tanks wear their own service paint; a chosen paint recolours the painted panels.
-- Wanted next (asked of the modelling session): heavy tank, battleship, transport plane, then one per Service Tree vehicle.
+- v6.7 batch 2 in the game: Jackal L1, Grimjaw L3c, Monolith L4c (with coaxial gun; TT2 HXA-M3D hover), Lynx S1, Sentinel S1b, Bulwark S1c,
+  Colossus S4c, Leviathan S4d, Sparrow A1, Bastion A4c (TT2 BRT-T1A). Ships keep their class's AA battery. Paint maps relative to the model's main paint.
+- v6.7 Shape Forge trees in the woods: palms on the coast, conifers up the hills, rainforest giant / broadleaf / glow willow / shrub mixed in.
+- Next from the modelling session: the rest of the Service Tree list, in tree order.
 - Fixed in v6.5: a comment had swallowed code in tt2Dress since v6.3, so every TT2 vehicle failed to build.

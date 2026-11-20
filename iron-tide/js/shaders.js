@@ -757,6 +757,7 @@ void main(){
   Lt+=trans*uLightCol*pow(max(dot(-V,uLightDir),0.),4.)*.3*sunU;
   vec3 Hh=normalize(uLightDir+V);
   vec3 res=col*Lt+uLightCol*pow(max(dot(N,Hh),0.),36.)*shine*sunU*occ;
+  if(pc>6.5)res=lin(vCol.rgb)*(.45+2.8*uNight);                     // v6.6 glowing beads and spots on the glow willow: faint by day, bright at night
   res=mix(res,fogColor(-V),fogAmount(dist));
   gl_FragDepth=clamp(log2(vLogW)*uFcoef*.5,0.,1.);oCol=vec4(res,1.);return;
  }
