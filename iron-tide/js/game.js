@@ -2169,7 +2169,7 @@ function renderOps(){
 window.__contracts={get contract(){return contract;},conOffers,conAccept,conClear,contractStep,contractDock,conComplete,get done(){return conDone;}};
 
 // ---------- the game around the world: home screen, HUD, pause and settings, fuel and hull, harbours and the port screen, saving ----------
-const GAME_TITLE='IRON TIDE',GAME_VERSION='v6.8';
+const GAME_TITLE='IRON TIDE',GAME_VERSION='v6.9';
 try{document.getElementById('load').textContent='LOADING WORLD… '+GAME_VERSION;}catch(e){}
 const SAVE_KEY='irontide.save.v1';
 const BURN_IDLE=.00004,BURN_AHEAD=.00048;                 // fuel (0..1) per second; flank speed burns 2.5 times the ahead rate
