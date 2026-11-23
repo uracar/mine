@@ -12,6 +12,7 @@ Answers the owner has given, so they are never asked twice. Newest at the bottom
 - 2026-11-20 · 3D models → made by the Shape Forge chat, imported here ("with the other chat"); also water and trees.
 - 2026-11-23 · usage → save as much as possible; ask the owner questions whenever info is needed.
 - 2026-11-23 · three starting ships (S1/S1b/S1c) → still missing for the owner in v6.9 (fresh-player tests show them; investigate the owner's account/hangar).
+- 2026-11-23 · where missing → "Every where". Owner-mode hangar test (it.js hangar OUT sea 1 1) shows all three IN SERVICE, so it is account- or copy-specific: need the owner's screenshot (which file/site they open).
 - 2026-11-23 · next work while models come in → smarter AI players AND bigger maps & front lines (50–100 km fronts, more cities, rivers, bridges).
 - 2026-11-23 · GTX 1070 Ti on High → smooth now.
 - 2026-11-23 · Chromebook ~20 fps → not tried yet (ask again later).

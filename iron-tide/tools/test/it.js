@@ -9,6 +9,7 @@
 //   node tools/test/it.js water OUT [hash]       four sea views (near, mid, high, shore)
 //   node tools/test/it.js forest OUT [hash]      four views at a forest edge (hash '#play&q=2&still&t=0.95' = night)
 //   node tools/test/it.js gallery OUT ID...      one framed view per vehicle, contact sheet
+//   node tools/test/it.js hangar OUT [dom] [tt] [owner]   hangar screenshot (dom sea|land|air, tt 1|2, owner 1 = owner mode)
 // Screens are stacked into one PNG with Pillow (python3). Use Read on the PNG to look at it.
 const {chromium}=require('playwright');const {execSync}=require('child_process');const path=require('path');
 const BASE=process.env.ITURL||'http://localhost:8765/';
@@ -60,6 +61,8 @@ const cmds={
     for(let q=0;q<6.28;q+=.3){const fx=x+Math.cos(q)*250,fz=z+Math.sin(q)*250;if(D.forestAt(fx,fz)>.5&&T.height(fx,fz)>6){pl.x=x;pl.z=z;pl.y=h;pl.hd=-q;return [x|0,z|0];}}}return null;}));
   await wait(p,8000);const fs=[];for(const [i,[d,pi,y]] of [[30,.05,Math.PI/2],[120,.12,Math.PI/2],[500,.2,Math.PI/2],[60,.35,Math.PI/2+.8]].entries()){await view(p,d,pi,y,1);await wait(p,5000);const f=`${out}_${i}.png`;await p.screenshot({path:f});fs.push(f);}
   console.log('errors',errs);stack(out+'.png',fs);await b.close();},
+ async hangar(out,dom,tt,own){const {b,p,errs}=await open('#play&q=1&still',1280,720);await p.addStyleTag({content:'#ui{display:block!important}'});
+  console.log('tier 1:',await p.evaluate(([d,t,o])=>window.__dev.hangar(d,+t||1,o==='1'),[dom,tt,own]));await wait(p,1500);await p.screenshot({path:out+'.png'});console.log('errors',errs);await b.close();},
  async gallery(out,...ids){const {b,p,errs}=await open('#play&q=1&still&t=0.36',640,360);const fs=[];
   for(const id of ids){console.log(id,await place(p,id));await wait(p,6000);await view(p,.8,.22,1.1);await wait(p,4000);const f=`${out}_${id}.png`;await p.screenshot({path:f});fs.push(f);}
   console.log('errors',errs);stack(out+'.png',fs,3);await b.close();},
