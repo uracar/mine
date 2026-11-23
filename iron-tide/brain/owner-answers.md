@@ -20,3 +20,10 @@ Answers the owner has given, so they are never asked twice. Newest at the bottom
 - 2026-11-23 · front lines look → trenches + no-man's-land, 50–100 km, bunkers, craters, cleared strip between the sides.
 - 2026-11-23 · new map types → all: rivers & bridges, big cities, desert, snow (vehicles can get stuck in snow).
 - 2026-11-23 · Blender → owner wants Blender used; first test: an animation of a Shape Forge model (tools/blender/forge_anim.py).
+- 2026-11-23 · usage → owner sees ~1%/message in long chats; start fresh chats per job, batch requests, few pictures, no progress pings.
+
+## Handoff (2026-11-23, end of the v6.9 chat)
+Next jobs, in order: 1) smarter AI — aim & dodge like players (lead shots, angle armour, weave, cover); 2) front lines 50–100 km with
+trenches, bunkers, craters, no-man's-land; 3) map types: rivers & bridges, big cities, desert, snow (vehicles stuck in snow).
+Also: import new Shape Forge batches as they arrive (tier 3 next: S3a–S3e, L3a, L3b, A3a–A3c) — see forge.md.
+Open: owner still can't see S1/S1b/S1c "everywhere" (tests show them) — ask for a screenshot + which file/site they open.
