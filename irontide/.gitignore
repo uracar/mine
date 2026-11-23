@@ -1,0 +1,6 @@
+# the game itself stays out of this public repo: only the remaster pipeline is tracked
+*.html
+blender/out/
+blender/forge_models.json
+blender/orig_tris.json
+*.png
