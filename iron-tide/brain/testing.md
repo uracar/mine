@@ -19,3 +19,8 @@ Page hooks (game.js, search `window.__dev=`): `setVehicle`, `nodeSpec(id)`, `VS`
 Release: `tools/release.sh X.Y` (bump GAME_VERSION + sw.js, syntax check, bundle, copy to dist, regenerate codemap) →
 `it.js nodes file:///…/dist/iron-tide-vX.Y.html#play&q=1&still` → update NOTES.md → commit + push → SendUserFile the HTML.
 Keep scratch screenshots in the session scratchpad; copy only pictures worth keeping to `docs/`.
+
+**Blender** (v7 era): not preinstalled — `pip install bpy` (Blender 5.3 as a Python module, ~1 min). Only **Cycles on CPU** renders
+headless (EEVEE/Workbench crash). `python3 tools/blender/forge_anim.py MODEL_ID OUT.mp4 [frames] [width] [samples]` rebuilds any Shape
+Forge model (same axes/shapes as the game) and renders an animated showcase (turrets sweep, guns recoil+flash, wheels/props spin,
+camera orbits) + a still; ffmpeg is installed. Cost: 720p, 12 samples ≈ 7 s/frame (4 cores); test with `30 320 4` first (~20 s).

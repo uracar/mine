@@ -19,3 +19,4 @@ Answers the owner has given, so they are never asked twice. Newest at the bottom
 - 2026-11-23 · smarter AI: priority → aim & dodge like players (lead shots, angle armour, weave, use cover).
 - 2026-11-23 · front lines look → trenches + no-man's-land, 50–100 km, bunkers, craters, cleared strip between the sides.
 - 2026-11-23 · new map types → all: rivers & bridges, big cities, desert, snow (vehicles can get stuck in snow).
+- 2026-11-23 · Blender → owner wants Blender used; first test: an animation of a Shape Forge model (tools/blender/forge_anim.py).
