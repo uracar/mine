@@ -14,7 +14,19 @@ reading `js/game.js` (15k lines) whole — use the code map to jump to lines.
 | [testing](iron-tide/brain/testing.md) | checking anything in the browser, releasing a version |
 | [pitfalls](iron-tide/brain/pitfalls.md) | before editing game.js (mistakes that cost hours) |
 | [codemap](iron-tide/brain/codemap.md) | every section and function with line numbers (generated) |
+| [owner-answers](iron-tide/brain/owner-answers.md) | the owner's answers to past questions (check before asking) |
 | [NOTES.md](iron-tide/NOTES.md) | the owner's feature backlog and its status |
+
+**Save usage (the owner asked for this):**
+- Read the codemap, then only the lines you need (`Read` with offset/limit, or grep). Never read game.js or models.js whole.
+- Use `tools/test/it.js` and the scripts in `tools/`; don't write new throwaway scripts. Fewer, targeted screenshots (one stacked PNG).
+- Don't re-derive what a brain node already says; don't explore when a node points at the answer.
+- Batch edits into one Python replace script; one release per finished request, not per small step.
+- Short replies to the owner.
+
+**Ask the owner when information is missing** (they asked for this): if a request depends on a choice only they can make
+(names, looks, balance, priorities, which vehicle/map), ask with AskUserQuestion (short, plain words, options with a recommended
+first) instead of guessing or exploring. Record every answer in the matching brain node (or `owner-answers.md`) so it is never asked twice.
 
 Fast path for a typical request: rules → codemap (find lines) → edit → `node iron-tide/tools/test/it.js …` → `tools/release.sh X.Y` → commit, push, send the HTML.
 Update the node you learned something in before you finish (one line is enough), so the next session starts smarter.
