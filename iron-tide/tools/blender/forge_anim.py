@@ -155,7 +155,7 @@ pivot.rotation_euler = (0, 0, math.radians(80)); pivot.keyframe_insert('rotation
 
 # ---------- render ----------
 r = sc.render; r.engine = 'CYCLES'; sc.cycles.device = 'CPU'; sc.cycles.samples = SAMPLES; sc.cycles.use_denoising = True
-r.resolution_x, r.resolution_y = W, W * 9 // 16; r.fps = FPS; sc.frame_start, sc.frame_end = 1, FR
+r.resolution_x, r.resolution_y = W // 2 * 2, (W * 9 // 16) // 2 * 2; r.fps = FPS; sc.frame_start, sc.frame_end = 1, FR
 sc.view_settings.view_transform = 'AgX' if 'AgX' in [i.identifier for i in sc.view_settings.bl_rna.properties['view_transform'].enum_items] else 'Filmic'
 tmp = pathlib.Path(tempfile.mkdtemp()); r.filepath = str(tmp / 'f_'); r.image_settings.file_format = 'PNG'
 bpy.ops.render.render(animation=True)
